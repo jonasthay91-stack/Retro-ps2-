@@ -311,9 +311,11 @@ já mantido pelo OPL.
 └────────────────────────────────────────────────────────────────┘
 ```
 
-**Decisão de projeto crítica:** só a **capa em foco** é renderizada em resolução plena
-(256×366). As demais usam miniaturas (~120×172). Isso resolve simultaneamente R-02 (RAM),
-R-03 (draw calls) e R-09 (VRAM).
+**Decisão de projeto crítica:** existe **uma única textura de capa por jogo** (192×276, T8). O
+painel de detalhes a desenha em tamanho nativo; a grade desenha a mesma textura reduzida pelo GS
+em hardware (~128×184). Isso resolve R-02 (RAM) e R-09 (VRAM) e, principalmente, elimina a
+complexidade de dois caches e quatro estados de carregamento — ver
+[`06-decisao-capas.md`](06-decisao-capas.md).
 
 Contagem de primitivas: 8 miniaturas + 1 capa em foco + moldura + ~10 textos + cabeçalho + rodapé
 ≈ **35 primitivas**. Confortável.
@@ -490,41 +492,45 @@ Contratos verificáveis, derivados de R-02, R-03, R-09, R-10.
 | Tempo até a tela inicial | ≤ 3 s | Cronômetro do boot |
 | Ordenação de 1.000 jogos | ≤ 100 ms | Instrumentação de `qsort` |
 | Busca incremental | ≤ 30 ms por tecla | Instrumentação |
-| Capa em foco | 256×366, T8 (94 KB) | Validação no carregamento |
-| Miniatura | 120×172, T8 (21 KB) | Validação no carregamento |
-| Cache de capas | 16 entradas | Configuração do tema |
+| Capa (única) | 192×276, T8 (53 KB) | Validação no carregamento |
+| Cache de capas | 16 entradas (845 KB) | Configuração do tema |
 
 ---
 
 ## 8. Estratégia de capas
 
-O ponto de maior tensão entre "capas grandes" e 32 MB de RAM.
+> **Decisão fechada em [`06-decisao-capas.md`](06-decisao-capas.md).** Esta seção é o resumo.
 
-### 8.1 Dois tamanhos
+### 8.1 Um único arquivo
 
 ```
-ART/<startup>_COV.png    256×366  capa em foco       (~94 KB em T8)
-ART/<startup>_THM.png    120×172  miniatura da grade (~21 KB em T8)
+ART/<startup>_COV.png    192×276  PNG paletizado 8 bits  (~53 KB em RAM)
 ```
 
-Se `_THM.png` não existir, o RetroHub usa `_COV.png` escalado — funciona, mas gasta 4,5× mais RAM
-por miniatura. **O RetroHub Manager gera as miniaturas automaticamente**, e essa é uma das
-justificativas mais fortes para o Manager existir.
+**Não existe arquivo de miniatura.** A grade desenha essa mesma textura reduzida pelo GS em
+hardware (~128×184, escala 0,67×); o painel de detalhes a desenha no tamanho nativo.
+
+Um arquivo só elimina dois caches, quatro estados de carregamento e a transição visual entre
+miniatura e capa — a simplificação que mais contribui para a fluidez.
 
 ### 8.2 PNG paletizado
 
-`textures.c` já decodifica PNG de 8 bits para `GS_PSM_T8` + CLUT (`texReadPixels8`,
-`textures.c:317`). Capas de jogo comprimem muito bem em 256 cores. Ganho: **4× em RAM e VRAM**,
-com perda visual desprezível numa TV de definição padrão.
+`textures.c` já decodifica PNG de 8 bits para `GS_PSM_T8` + CLUT de 1.024 B (`texReadPixels8`,
+`textures.c:317`; alocação em `textures.c:518-522`). O caminho de 8 bits é o mais barato do
+arquivo — um `memcpy` por linha, sem processamento por pixel.
+
+Ganho: **3–4× em RAM e VRAM** contra uma capa RGB do mesmo tamanho, **sem código novo**.
+
+Capas RGB legadas continuam funcionando, apenas mais pesadas (regra RI-8).
 
 ### 8.3 Política de cache
 
 Estende `texcache.c` sem alterar sua semântica (R-01/zona amarela):
-- Cache de miniaturas: 16 entradas (cobre a grade visível + uma linha de folga)
-- Cache de capas em foco: 3 entradas (atual + anterior + próxima)
+- **Um cache, 16 entradas ≈ 845 KB** (cobre a grade visível + uma linha de folga)
 - Pré-carregamento direcional: ao mover o foco, enfileira a próxima capa na direção do movimento
 - `guiInactiveFrames` continua governando quando é seguro carregar — o anti-thrash existente é
   exatamente o que uma grade precisa
+- Placeholder de tamanho fixo quando a capa não existe: o layout nunca "pula"
 
 ---
 

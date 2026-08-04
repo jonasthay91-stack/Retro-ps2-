@@ -39,25 +39,27 @@ lista de jogos, atlas de fontes, módulos IRX embutidos (~2 MB) e o próprio có
 **Probabilidade.** Alta se não houver orçamento explícito.
 **Impacto.** Travamentos aleatórios, difíceis de reproduzir.
 
-**Mitigação.**
+**Mitigação.** Resolvida em [`06-decisao-capas.md`](06-decisao-capas.md).
 1. **Orçamento fixo declarado**: a UI não pode passar de **8 MB** de heap dinâmico.
-2. **Capas em PNG paletizado de 8 bits** (`GS_PSM_T8` + CLUT). `textures.c` já suporta
-   (`texReadPixels8`, `textures.c:317`). Custo: 1/3 a 1/4. Uma capa 256×366 em T8 = **94 KB**.
-3. **Resolução alvo das capas: 256×366** (proporção de capa de PS2, 0.7). Não 512.
+2. **Capas em PNG paletizado de 8 bits** (`GS_PSM_T8` + CLUT de 1.024 B). `textures.c` já suporta
+   (`texReadPixels8`, `textures.c:317`). Custo: 1/3 a 1/4 de uma capa RGB.
+3. **Resolução única: 192×276** — sem arquivo de miniatura. Uma capa = **53 KB**.
 4. Contador de heap em builds de debug, exibido no rodapé.
-5. Rejeitar capas acima do limite em vez de tentar carregar (já existe `maxSize`, `textures.c:104`).
+5. Rejeitar PNG acima de **256 KB** antes do `malloc` do buffer de arquivo (`textures.c:430`, hoje
+   sem limite) e capas acima do limite de dimensão (`maxSize`, `textures.c:104`).
 
-**Tabela de orçamento proposta:**
+**Tabela de orçamento:**
 
 | Item | Orçamento |
 |---|---|
-| Cache de capas (16 × 256×366 T8) | 1,5 MB |
+| Cache de capas (16 × 192×276 T8) | 0,85 MB |
 | Cache de ícones (20 × 64×64 T8) | 0,1 MB |
-| Fundo estático 640×480 CT24 | 0,9 MB |
+| Fundo estático 640×480 T8 | 0,3 MB |
 | Atlas de fontes (4 × 256×256 CT32) | 1,0 MB |
 | Índice de biblioteca (2.000 jogos) | 1,0 MB |
 | Nós de menu / submenu (2.000) | 0,3 MB |
-| Folga operacional | 3,2 MB |
+| Pico transitório de decodificação | 0,15 MB |
+| Folga operacional | 4,3 MB |
 | **Total UI** | **8,0 MB** |
 
 ---

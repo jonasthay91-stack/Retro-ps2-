@@ -117,21 +117,23 @@ cartão preparado pelo RetroHub.
 
 ### Tarefas
 1. `rh_theme_ext.c`: registro dos novos tipos.
-2. Implementar `CoverGrid` (`rh_grid.c`) — o mais complexo: paginação, foco, dois tamanhos de
-   capa, integração com `texcache`.
+2. Implementar `CoverGrid` (`rh_grid.c`) — o mais complexo: paginação, foco, integração com
+   `texcache`. Capa única de 192×276 em T8, reduzida por hardware na grade
+   (ver [`06-decisao-capas.md`](06-decisao-capas.md)).
 3. Implementar `GameCard` (`rh_card.c`) — painel de campos configuráveis.
 4. Implementar `TabBar`, `HubTile`, `SearchBox`, `StatusBar`, `AttributeBadge`.
 5. Novas seções de tela no parser: `hubN`, `gridN`, `searchN`.
 6. Layout embutido de fallback para temas sem essas seções.
-7. Extensão do `texcache`: dois tamanhos de capa, pré-carregamento direcional. **Sem alterar a
-   semântica de `qr`/`UID`.**
+7. Extensão do `texcache`: pré-carregamento direcional. **Sem alterar a semântica de `qr`/`UID`.**
+8. Limite de tamanho de arquivo PNG (256 KB) antes do `malloc` em `textures.c:430`.
 
 ### Critérios de aceite
 - [ ] 5 temas legados renderizam idênticos ao baseline
-- [ ] Tema de teste com `CoverGrid` renderiza 8 miniaturas + 1 foco a 60 fps
-- [ ] Heap ≤ 8 MB com o cache de capas cheio
+- [ ] Tema de teste com `CoverGrid` renderiza 8 capas + 1 em foco a 60 fps
+- [ ] Cache de 16 capas ≤ 845 KB; heap ≤ 8 MB
 - [ ] Primitivas/frame ≤ 80
 - [ ] Nenhuma leitura de arquivo dentro do loop de frame
+- [ ] PNG acima de 256 KB rejeitado sem travar
 
 **Gatilho de parada:** FPS abaixo de 50, ou heap acima de 8 MB, ou regressão em tema legado.
 
@@ -184,8 +186,9 @@ cartão preparado pelo RetroHub.
 - [ ] 60 fps (NTSC) / 50 fps (PAL) estáveis durante rolagem rápida contínua
 - [ ] Heap ≤ 8 MB
 - [ ] Rolagem rápida não dispara I/O (o anti-thrash de `guiInactiveFrames` funciona na grade)
-- [ ] Jogo sem capa exibe placeholder, sem travar nem piscar
+- [ ] Jogo sem capa exibe placeholder de tamanho fixo — o layout não "pula" quando a capa chega
 - [ ] Capa corrompida/inválida é rejeitada sem travar
+- [ ] Capa RGB legada (não paletizada) funciona, apenas ocupando mais memória
 - [ ] Lançamento de jogo funciona nos 5 dispositivos (USB, MX4SIO, iLink, HDD, SMB)
 - [ ] 20/20 jogos de regressão em hardware real
 

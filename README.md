@@ -27,6 +27,7 @@ proposta de arquitetura do RetroHub. A implementação começa pela Fase 0 do pl
 | [**03 — Arquitetura do RetroHub PS2**](docs/03-arquitetura-retrohub-ps2.md) | Modelo de dados, telas, extensões de tema, identidade visual, orçamentos de memória e desempenho |
 | [**04 — Plano de desenvolvimento**](docs/04-plano-de-desenvolvimento.md) | 8 fases com entregáveis, critérios de aceite e gatilhos de parada |
 | [**05 — RetroHub Manager (PC)**](docs/05-retrohub-manager-pc.md) | Especificação do aplicativo de PC |
+| [**06 — Decisão: formato das capas**](docs/06-decisao-capas.md) | Capa única 192×276 em PNG paletizado 8 bits — a escolha mais leve e mais simples |
 
 ---
 
@@ -82,7 +83,8 @@ que dá forma ao produto.
 
 | Recurso | Orçamento |
 |---|---|
-| Heap da interface | ≤ 8 MB |
+| Heap da interface | ≤ 8 MB (uso previsto: 3,4 MB) |
+| Cache de 16 capas | 845 KB |
 | Primitivas de desenho por frame | ≤ 80 |
 | Taxa de quadros | 60 (NTSC) / 50 (PAL) estáveis |
 | Tempo até a tela inicial | ≤ 3 s |

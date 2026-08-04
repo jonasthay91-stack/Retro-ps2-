@@ -70,19 +70,22 @@ região, compatibilidade conhecida.
 
 ### 2.4 Processamento de imagens
 
-O passo que mais economiza RAM no console:
+O passo que mais economiza RAM no console. Formato definido em
+[`06-decisao-capas.md`](06-decisao-capas.md):
 
 | Saída | Tamanho | Formato | Uso |
 |---|---|---|---|
-| `<startup>_COV.png` | 256×366 | PNG paletizado 8 bits | Capa em foco |
-| `<startup>_THM.png` | 120×172 | PNG paletizado 8 bits | Miniatura da grade |
+| `<startup>_COV.png` | **192×276** | PNG paletizado 8 bits | Capa (única) |
 | `<startup>_BG.png` | 640×480 | PNG paletizado 8 bits | Fundo por jogo (opcional) |
-| `<startup>_ICO.png` | 64×64 | PNG paletizado 8 bits | Ícone |
+| `<startup>_ICO.png` | 64×64 | PNG paletizado 8 bits | Ícone (opcional) |
 
-Quantização para 256 cores com dithering. **Esta conversão é a diferença entre um cache de capas
-de 1,5 MB e um de 6 MB no console.**
+Quantização para ≤ 256 cores com dithering. **Esta conversão é a diferença entre um cache de capas
+de 845 KB e um de 3,4 MB no console.**
 
-Validação: rejeitar imagens acima de `720×512` (limite de `textures.c:104`).
+Não existe arquivo de miniatura: a grade reduz a mesma capa por hardware no GS.
+
+Validação: rejeitar saídas acima de **256 KB** e imagens acima de `720×512`
+(limite de `textures.c:104`).
 
 ### 2.5 Organização de pastas
 
@@ -93,7 +96,7 @@ Cria e mantém a estrutura que o OPL/RetroHub espera:
   CD/       ISOs de CD
   DVD/      ISOs de DVD
   CFG/      <startup>.cfg  metadados
-  ART/      <startup>_COV.png, _THM.png, _BG.png, _ICO.png
+  ART/      <startup>_COV.png, _BG.png, _ICO.png
   THM/      temas
   LNG/      idiomas
   VMC/      memory cards virtuais
