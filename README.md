@@ -1,0 +1,115 @@
+# RetroHub PS2
+
+Um launcher moderno para PlayStation 2, construído sobre o motor do
+[Open PS2 Loader](https://github.com/ps2homebrew/Open-PS2-Loader).
+
+Mantém integralmente a compatibilidade com **USB, HDD, SMB, MX4SIO, iLink e Memory Card** — o
+carregamento dos jogos continua sendo feito pelo motor do OPL. O que muda é a interface e a
+experiência de uso.
+
+---
+
+## Estado atual
+
+> **Fase de análise concluída. Nenhuma linha de código escrita — e nenhum arquivo do OPL alterado.**
+
+Esta etapa produziu a documentação técnica completa da arquitetura do OPL, a análise de riscos e a
+proposta de arquitetura do RetroHub. A implementação começa pela Fase 0 do plano.
+
+---
+
+## Documentação
+
+| Documento | Conteúdo |
+|---|---|
+| [**01 — Análise da arquitetura do OPL**](docs/01-analise-arquitetura-opl.md) | Estrutura do projeto, linguagem, renderização, menus, capas, memória, detecção de dispositivos, leitura de ISOs, carregamento de jogos, temas, compilação e o que pode ser modificado com segurança |
+| [**02 — Riscos e compatibilidade**](docs/02-riscos-e-compatibilidade.md) | 12 riscos avaliados, 10 regras invioláveis, estratégia de teste |
+| [**03 — Arquitetura do RetroHub PS2**](docs/03-arquitetura-retrohub-ps2.md) | Modelo de dados, telas, extensões de tema, identidade visual, orçamentos de memória e desempenho |
+| [**04 — Plano de desenvolvimento**](docs/04-plano-de-desenvolvimento.md) | 8 fases com entregáveis, critérios de aceite e gatilhos de parada |
+| [**05 — RetroHub Manager (PC)**](docs/05-retrohub-manager-pc.md) | Especificação do aplicativo de PC |
+
+---
+
+## O que a análise concluiu
+
+O OPL é, na prática, dois programas em um:
+
+- **Um motor de compatibilidade** — `ee_core` + `modules/iopcore` + `sbPrepare()` +
+  `sysLaunchLoaderElf()`. É o resultado de mais de uma década de engenharia reversa, é
+  extremamente sensível, e o RetroHub **não toca em nenhuma linha dele**.
+- **Um front-end** — `gui`, `menusys`, `themes`, `renderman`, `fntsys`, `texcache`. Bem
+  estruturado, desacoplado por uma vtable limpa (`item_list_t`) e por um motor de temas
+  data-driven. **Totalmente substituível.**
+
+A fronteira entre os dois é nítida. Isso torna o objetivo do projeto — nova experiência sobre o
+mesmo motor — o caminho que a própria arquitetura do OPL já sugere.
+
+Quatro descobertas que economizam trabalho significativo:
+
+1. **Os metadados já existem.** O tema padrão do OPL já lê `Title`, `Genre`, `Release`,
+   `Developer` e `Description` de `CFG/<startup>.cfg`. Falta apenas acrescentar jogadores,
+   região, favorito e última partida.
+2. **O cache de capas já é assíncrono, LRU e com proteção anti-thrash.** É a base pronta para uma
+   grade de capas.
+3. **O motor de temas é extensível por design.** Adicionar `CoverGrid` ou `GameCard` é aditivo e
+   não quebra nenhum dos temas existentes da comunidade.
+4. **A vtable `item_list_t` isola completamente a UI dos dispositivos.** Uma interface nova pode
+   ser escrita sem tocar em `bdmsupport.c`, `hddsupport.c` ou `ethsupport.c`.
+
+---
+
+## Funcionalidades planejadas
+
+**Tela inicial** — PS2 · PS1 · Emuladores · Homebrew · Favoritos · Recentes · Configurações
+
+**Tela de jogos** — grade de capas grandes com painel lateral exibindo capa, nome, ano,
+desenvolvedora, gênero, número de jogadores, região, código do disco, compatibilidade, última vez
+jogado e favorito.
+
+**Navegação** — busca por nome, ordenação por nome/ano/gênero/desenvolvedora, filtros por
+categoria e gênero, favoritos e recentes.
+
+**Personalização** — sistema de temas, configurações visuais, fundo personalizado, tela inicial
+personalizável, música opcional e sons de navegação.
+
+---
+
+## Princípios de projeto
+
+O PS2 tem **32 MB de RAM**, **4 MB de VRAM** e um processador de **294 MHz**. Toda decisão de
+interface é tomada dentro desse orçamento — não como limitação a contornar, mas como a restrição
+que dá forma ao produto.
+
+| Recurso | Orçamento |
+|---|---|
+| Heap da interface | ≤ 8 MB |
+| Primitivas de desenho por frame | ≤ 80 |
+| Taxa de quadros | 60 (NTSC) / 50 (PAL) estáveis |
+| Tempo até a tela inicial | ≤ 3 s |
+| Ordenação de 1.000 jogos | ≤ 100 ms |
+
+**Regras invioláveis:**
+- O motor (`ee_core/`, `modules/`, `system.c`, `sbPrepare`) é somente leitura.
+- O layout de pastas e o formato de configuração do OPL são preservados — uma mídia preparada pelo
+  RetroHub continua funcionando no OPL original.
+- Temas legados do OPL renderizam idênticos.
+- Nenhuma release sem teste em PS2 físico.
+
+A lista completa está em [`02-riscos-e-compatibilidade.md`](docs/02-riscos-e-compatibilidade.md#2-regras-invioláveis-do-projeto).
+
+---
+
+## Próximo passo
+
+**Fase 0** — fork do OPL, build reproduzível e conjunto de 20 jogos de regressão testados em
+hardware real. Nenhuma mudança de interface antes disso.
+
+---
+
+## Créditos
+
+Este projeto se apoia inteiramente no trabalho da equipe do **Open PS2 Loader** e da comunidade
+PS2 Homebrew. O motor de compatibilidade que faz os jogos rodarem é obra deles; o RetroHub apenas
+constrói uma nova experiência de uso sobre ele.
+
+O OPL é licenciado sob a **Academic Free License v3.0**.
