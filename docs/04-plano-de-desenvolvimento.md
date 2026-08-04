@@ -213,7 +213,9 @@ cartão preparado pelo RetroHub.
 - [ ] Rolagem rápida não dispara I/O (o anti-thrash de `guiInactiveFrames` funciona na grade)
 - [ ] Entrar numa página nova preenche as 8 capas sem travar a navegação
 - [ ] Voltar a uma página já visitada é instantâneo (cache cobre 3 páginas)
-- [ ] Jogo sem capa exibe placeholder de tamanho fixo — o layout não "pula" quando a capa chega
+- [ ] Jogo sem capa exibe placeholder de tamanho fixo **com o nome do jogo** — o layout não "pula"
+      quando a capa chega, e "sem capa" é indistinguível de "carregando"
+- [ ] Biblioteca sem nenhuma arte continua totalmente navegável pelos títulos
 - [ ] Capa corrompida/inválida é rejeitada sem travar
 - [ ] Capa RGB legada (não paletizada) funciona, apenas ocupando mais memória
 - [ ] Lançamento de jogo funciona nos 5 dispositivos (USB, MX4SIO, iLink, HDD, SMB)

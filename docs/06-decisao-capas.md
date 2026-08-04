@@ -255,7 +255,44 @@ avançar e voltar uma página é sempre instantâneo. Custo: **1,27 MB**, confor
 de 4,0 MB.
 
 **Placeholder de tamanho fixo.** O slot tem dimensão constante; só o conteúdo muda quando a capa
-chega. O layout nunca se reorganiza.
+chega. O layout nunca se reorganiza. O que exatamente é desenhado está definido abaixo.
+
+### O que aparece quando não há capa
+
+Existem três estados possíveis num quadro da grade:
+
+| Estado | O que é desenhado |
+|---|---|
+| Jogo **sem** arquivo de capa em `ART/` | Placeholder + **nome do jogo** |
+| Capa **existe mas ainda está carregando** | **Exatamente o mesmo placeholder** |
+| Capa carregada | A capa |
+
+**Regra: os dois primeiros estados são visualmente idênticos.** Nenhum indicador de carregamento
+por quadro.
+
+O motivo é direto: com 8 quadros visíveis, um spinner por célula transformaria cada mudança de
+página numa tela piscando. Sem indicador, as capas simplesmente aparecem, uma a uma, e a tela
+permanece calma. O único feedback de carregamento é global e discreto (o `LoadingIcon` do tema, que
+o OPL já possui).
+
+**O placeholder carrega o nome do jogo.** Uma grade de 8 retângulos neutros idênticos é inútil para
+navegar. Com o título escrito dentro, um jogo sem capa continua perfeitamente identificável — e o
+sistema segue utilizável mesmo numa biblioteca sem nenhuma arte. Texto é gratuito: a fonte já está
+no atlas em VRAM (`fntsys.c`), então isso não consome memória adicional nem I/O.
+
+Texturas de fallback já disponíveis no OPL (`textures.h`): `COVER_DEFAULT` (`cover.png`),
+`DISC_DEFAULT` (`disc.png`), `CASE_OVERLAY` (`case.png`). O tema define qual usar via
+`default=<textura>`, exatamente como já funciona hoje.
+
+### Moldura de caixa (`overlay=case`)
+
+O OPL desenha a caixa plástica do jogo com `rmDrawOverlayPixmap` (`renderman.c:345`), que deforma
+uma textura por 4 cantos — custa **2 primitivas** em vez de 1.
+
+| Onde | Moldura? | Motivo |
+|---|---|---|
+| Quadros da grade (128×184) | **Não** | 16 primitivas em vez de 8, e num quadro pequeno a moldura vira ruído visual |
+| Capa em foco no painel (192×276) | **Sim** | Tamanho suficiente para a moldura funcionar; custa 2 primitivas, uma vez só |
 
 **Pré-carregamento direcional.** Ao mover o foco, enfileirar a próxima capa na direção do
 movimento — uma requisição por movimento, não uma varredura.
@@ -286,7 +323,9 @@ usa o Manager continua funcionando (regra RI-8).
 - [ ] Heap total da UI: ≤ 8 MB
 - [ ] 60 fps (NTSC) / 50 fps (PAL) estáveis com rolagem rápida contínua na grade
 - [ ] Segurar o direcional não dispara I/O
-- [ ] Jogo sem capa exibe placeholder sem alterar o layout
+- [ ] Jogo sem capa exibe placeholder **com o nome do jogo**, sem alterar o layout
+- [ ] "Sem capa" e "capa carregando" são visualmente idênticos — nenhum indicador por quadro
+- [ ] Biblioteca sem nenhuma arte continua totalmente navegável pelos títulos
 - [ ] Capa RGB legada (não paletizada) carrega e funciona, apenas ocupando mais memória
 - [ ] PNG acima de 256 KB é rejeitado sem travar
 - [ ] Capa corrompida é rejeitada sem travar
