@@ -317,7 +317,7 @@ em hardware (~128×184). Isso resolve R-02 (RAM) e R-09 (VRAM) e, principalmente
 complexidade de dois caches e quatro estados de carregamento — ver
 [`06-decisao-capas.md`](06-decisao-capas.md).
 
-Contagem de primitivas: 8 miniaturas + 1 capa em foco + moldura + ~10 textos + cabeçalho + rodapé
+Contagem de primitivas: 8 capas reduzidas + 1 capa em foco + moldura + ~10 textos + cabeçalho + rodapé
 ≈ **35 primitivas**. Confortável.
 
 **Painel lateral** exibe todos os campos exigidos: capa (a em foco), nome, ano, desenvolvedora,
@@ -350,7 +350,7 @@ Configurável, para respeitar tanto o público quanto o hardware:
 
 | Modo | Capas visíveis | Custo | Quando |
 |---|---|---|---|
-| **Grade** (padrão) | 8 miniaturas + 1 foco | ~35 prims | Uso normal |
+| **Grade** (padrão) | 8 reduzidas + 1 em foco | ~35 prims | Uso normal |
 | **Lista + capa** | 1 capa | ~25 prims | Bibliotecas gigantes, consoles lentos |
 | **Clássico OPL** | conforme o tema | — | Compatibilidade / preferência |
 
@@ -493,7 +493,7 @@ Contratos verificáveis, derivados de R-02, R-03, R-09, R-10.
 | Ordenação de 1.000 jogos | ≤ 100 ms | Instrumentação de `qsort` |
 | Busca incremental | ≤ 30 ms por tecla | Instrumentação |
 | Capa (única) | 192×276, T8 (53 KB) | Validação no carregamento |
-| Cache de capas | 16 entradas (845 KB) | Configuração do tema |
+| Cache de capas | 24 entradas (1,27 MB) | Configuração do tema |
 
 ---
 
@@ -526,7 +526,7 @@ Capas RGB legadas continuam funcionando, apenas mais pesadas (regra RI-8).
 ### 8.3 Política de cache
 
 Estende `texcache.c` sem alterar sua semântica (R-01/zona amarela):
-- **Um cache, 16 entradas ≈ 845 KB** (cobre a grade visível + uma linha de folga)
+- **Um cache, 24 entradas ≈ 1,27 MB** (cobre 3 páginas de grade: atual, anterior e próxima)
 - Pré-carregamento direcional: ao mover o foco, enfileira a próxima capa na direção do movimento
 - `guiInactiveFrames` continua governando quando é seguro carregar — o anti-thrash existente é
   exatamente o que uma grade precisa

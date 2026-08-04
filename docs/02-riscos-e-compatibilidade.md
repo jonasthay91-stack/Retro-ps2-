@@ -52,14 +52,14 @@ lista de jogos, atlas de fontes, módulos IRX embutidos (~2 MB) e o próprio có
 
 | Item | Orçamento |
 |---|---|
-| Cache de capas (16 × 192×276 T8) | 0,85 MB |
+| Cache de capas (24 × 192×276 T8) | 1,27 MB |
 | Cache de ícones (20 × 64×64 T8) | 0,1 MB |
 | Fundo estático 640×480 T8 | 0,3 MB |
 | Atlas de fontes (4 × 256×256 CT32) | 1,0 MB |
 | Índice de biblioteca (2.000 jogos) | 1,0 MB |
 | Nós de menu / submenu (2.000) | 0,3 MB |
 | Pico transitório de decodificação | 0,15 MB |
-| Folga operacional | 4,3 MB |
+| Folga operacional | 3,9 MB |
 | **Total UI** | **8,0 MB** |
 
 ---
@@ -183,9 +183,9 @@ frame. Em 640×448 CT24 o framebuffer duplo já consome ~2,3 MB. Sobram ~1,7 MB 
 
 **Mitigação.**
 1. Texturas paletizadas (T8) — mesma economia do R-02, agora em VRAM.
-2. Confiar no `gsKit_TexManager` (já faz expulsão por frame), mas **limitar o número de texturas
-   grandes visíveis simultaneamente**: numa grade, só a capa focada em tamanho cheio; as demais em
-   miniatura.
+2. Confiar no `gsKit_TexManager` (já faz expulsão por frame). Com capa única de 192×276 em T8, as
+   9 texturas visíveis somam ~477 KB de VRAM — cabe folgado no espaço restante após o framebuffer
+   duplo.
 3. Considerar `GS_PSM_CT16` para capas quando em modo HIRES.
 
 ---

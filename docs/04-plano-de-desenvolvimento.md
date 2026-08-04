@@ -37,15 +37,32 @@ possíveis dentro dos orçamentos.
 4. Gravar o baseline: cada um dos 20 jogos rodando no OPL original, em hardware real.
 5. Medir e registrar o baseline de desempenho: tempo de boot, FPS, pico de heap, tempo de
    ordenação — com 0, 100 e 1.000 jogos.
-6. CI: build da matriz + `clang-format` + **guarda que falha se um commit tocar
+6. **Medir o custo de carregar uma capa** — o número que decide o desenho da grade. Separar as
+   três parcelas, em cada dispositivo (USB, MX4SIO, iLink, HDD interno, SMB):
+
+   | Parcela | Como medir |
+   |---|---|
+   | `open()` do arquivo | tempo de abertura isolado, com cache de FAT frio e quente |
+   | `read()` do PNG | tempo por KB, com um PNG-8 de 192×276 (~30 KB) |
+   | decodificação libpng | tempo de `texLoadAll` descontando I/O |
+
+   Medir também **8 capas em sequência** (uma página de grade) para capturar o custo agregado de
+   abertura, que é o suspeito principal.
+
+   **Decisão que este número destrava:** se a abertura de arquivo dominar, a Fase 5 adota
+   `RH/covers.pak` (ver [`06-decisao-capas.md`](06-decisao-capas.md#plano-b-condicional-rhcoverspak));
+   se o volume de dados dominar, a alavanca é comprimir mais a capa; se a decodificação dominar,
+   a alavanca é reduzir a resolução.
+7. CI: build da matriz + `clang-format` + **guarda que falha se um commit tocar
    `ee_core/`, `modules/`, `src/system.c`, `src/ioprp.c`, `src/xparam.c` sem a label
    `engine-change`**.
-7. Criar `DIVERGENCIAS.md`.
+8. Criar `DIVERGENCIAS.md`.
 
 ### Critérios de aceite
 - [ ] Build reproduz o ELF oficial
 - [ ] 20/20 jogos do baseline funcionam em hardware real
 - [ ] Números de baseline registrados
+- [ ] **Custo de carregamento de capa medido nos 5 dispositivos**, com as três parcelas separadas
 - [ ] CI verde, incluindo a guarda de motor
 
 **Gatilho de parada:** build não reproduz → resolver toolchain antes de seguir.
@@ -124,13 +141,17 @@ cartão preparado pelo RetroHub.
 4. Implementar `TabBar`, `HubTile`, `SearchBox`, `StatusBar`, `AttributeBadge`.
 5. Novas seções de tela no parser: `hubN`, `gridN`, `searchN`.
 6. Layout embutido de fallback para temas sem essas seções.
-7. Extensão do `texcache`: pré-carregamento direcional. **Sem alterar a semântica de `qr`/`UID`.**
-8. Limite de tamanho de arquivo PNG (256 KB) antes do `malloc` em `textures.c:430`.
+7. Extensão do `texcache`: cache de **24 entradas** e pré-carregamento direcional. **Sem alterar a
+   semântica de `qr`/`UID`.**
+8. **Prioridade de carregamento na grade:** separar a passagem de requisição da passagem de
+   desenho. Pedir na ordem `foco → vizinhas → resto da página`; desenhar na ordem de layout.
+9. Limite de tamanho de arquivo PNG (256 KB) antes do `malloc` em `textures.c:430`.
 
 ### Critérios de aceite
 - [ ] 5 temas legados renderizam idênticos ao baseline
 - [ ] Tema de teste com `CoverGrid` renderiza 8 capas + 1 em foco a 60 fps
-- [ ] Cache de 16 capas ≤ 845 KB; heap ≤ 8 MB
+- [ ] Cache de 24 capas ≤ 1,27 MB; heap ≤ 8 MB
+- [ ] A capa em foco é sempre a primeira a aparecer ao entrar numa página
 - [ ] Primitivas/frame ≤ 80
 - [ ] Nenhuma leitura de arquivo dentro do loop de frame
 - [ ] PNG acima de 256 KB rejeitado sem travar
@@ -181,11 +202,17 @@ cartão preparado pelo RetroHub.
 8. Marcar/desmarcar favorito (botão a definir — provavelmente L3 ou △ longo).
 9. Atualização de `lastPlayed`/`playCount` no lançamento, gravando em `RH/recent.cfg`.
 10. Modos de visualização: grade / lista+capa / clássico.
+11. **Se a medição da Fase 0 apontar a abertura de arquivo como gargalo:** implementar
+    `RH/covers.pak` com fallback automático para PNGs soltos em `ART/`
+    (ver [`06-decisao-capas.md`](06-decisao-capas.md#plano-b-condicional-rhcoverspak)).
+    Caso contrário, **não implementar** — seria complexidade sem ganho medido.
 
 ### Critérios de aceite
 - [ ] 60 fps (NTSC) / 50 fps (PAL) estáveis durante rolagem rápida contínua
 - [ ] Heap ≤ 8 MB
 - [ ] Rolagem rápida não dispara I/O (o anti-thrash de `guiInactiveFrames` funciona na grade)
+- [ ] Entrar numa página nova preenche as 8 capas sem travar a navegação
+- [ ] Voltar a uma página já visitada é instantâneo (cache cobre 3 páginas)
 - [ ] Jogo sem capa exibe placeholder de tamanho fixo — o layout não "pula" quando a capa chega
 - [ ] Capa corrompida/inválida é rejeitada sem travar
 - [ ] Capa RGB legada (não paletizada) funciona, apenas ocupando mais memória

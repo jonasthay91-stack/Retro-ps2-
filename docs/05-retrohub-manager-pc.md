@@ -16,7 +16,7 @@ O Manager existe para que o PS2 só precise ler.
 ```
 ┌──────────────── PC (RetroHub Manager) ─────────────────┐
 │  Detecta ISOs → lê código do disco → busca metadados   │
-│  → baixa capas → gera miniaturas → organiza pastas     │
+│  → baixa capas → converte para PNG-8 → organiza pastas │
 │  → constrói library.idx → grava no pendrive/HD         │
 └────────────────────────┬───────────────────────────────┘
                          │ USB / rede
@@ -80,7 +80,7 @@ O passo que mais economiza RAM no console. Formato definido em
 | `<startup>_ICO.png` | 64×64 | PNG paletizado 8 bits | Ícone (opcional) |
 
 Quantização para ≤ 256 cores com dithering. **Esta conversão é a diferença entre um cache de capas
-de 845 KB e um de 3,4 MB no console.**
+de 1,27 MB e um de 5,1 MB no console.**
 
 Não existe arquivo de miniatura: a grade reduz a mesma capa por hardware no GS.
 

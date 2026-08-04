@@ -21,7 +21,7 @@
 | Formato | PNG **paletizado 8 bits**, ≤ 256 cores |
 | PSM no console | `GS_PSM_T8` + CLUT `GS_PSM_CT32` |
 | RAM por capa | 52.992 B + 1.024 B (CLUT) = **~53 KB** |
-| Cache | **16 entradas ≈ 845 KB** |
+| Cache | **24 entradas ≈ 1,27 MB** (3 páginas de grade) |
 | Filtro | `GS_FILTER_LINEAR` (padrão do OPL) |
 | Escala na grade | ~128×184 (**0,67×**) |
 | Código novo necessário | **nenhum** |
@@ -60,7 +60,7 @@ de código.
 
 Numa tela virtual de 640×480, uma capa de 192×276 ocupa 30% da largura e 57% da altura. É uma capa
 grande de verdade — o requisito está atendido. Dobrar para 384×552 quadruplicaria a memória
-(212 KB por capa, 3,4 MB de cache) para ganhar detalhe que uma TV de definição padrão não resolve.
+(212 KB por capa, 5,1 MB de cache) para ganhar detalhe que uma TV de definição padrão não resolve.
 
 A proporção 192:276 é 1:1,4375 — a proporção real da caixa de PS2 (138 × 197 mm).
 
@@ -126,7 +126,7 @@ transição visual, o dobro de arquivos e o dobro de trabalho no Manager. **300 
 complexidade** dentro de um orçamento de 8 MB.
 
 Fica registrado como otimização futura, caso surja um caso de uso real com 3.000+ jogos onde
-845 KB de cache seja um problema medido — não presumido.
+1,27 MB de cache seja um problema medido — não presumido.
 
 ---
 
@@ -134,19 +134,20 @@ Fica registrado como otimização futura, caso surja um caso de uso real com 3.0
 
 | Item | Antes | **Agora** |
 |---|---|---|
-| Cache de capas | 1,5 MB (16 × 94 KB) | **845 KB** (16 × 53 KB) |
+| Cache de capas | 1,5 MB (16 × 94 KB) | **1,27 MB** (24 × 53 KB) |
 | Cache de miniaturas | 0,3 MB | **0** (eliminado) |
 | Cache de ícones (20 × 64×64 T8) | 0,1 MB | 0,1 MB |
 | Fundo estático 640×480 | 0,9 MB | 0,9 MB (T8: **0,3 MB**) |
 | Atlas de fontes | 1,0 MB | 1,0 MB |
 | Índice de biblioteca (2.000 jogos) | 1,0 MB | 1,0 MB |
 | Nós de menu/submenu | 0,3 MB | 0,3 MB |
-| **Subtotal** | 5,1 MB | **3,4 MB** |
-| Folga operacional | 2,9 MB | **4,6 MB** |
+| **Subtotal** | 5,1 MB | **4,0 MB** |
+| Folga operacional | 2,9 MB | **4,0 MB** |
 | **Teto** | 8,0 MB | **8,0 MB** |
 
-A folga quase dobrou. Isso é margem para picos transitórios de decodificação (ver abaixo) e para
-crescimento futuro sem renegociar o orçamento.
+A folga aumentou ~40% **mesmo com o cache crescendo de 16 para 24 entradas** — o que sobrou da
+eliminação do arquivo de miniatura foi reinvestido em cobertura de cache, que é o que reduz
+releituras do pendrive.
 
 ---
 
@@ -196,10 +197,92 @@ O RetroHub Manager também garante isso na origem.
 
 ---
 
+## Comportamento de carregamento — as capas vivem no pendrive
+
+As capas ficam em `<dispositivo>/ART/` e são lidas sob demanda. Esta seção descreve exatamente
+quando isso acontece e o que impede que vire gargalo.
+
+### O que o `texcache.c` já garante
+
+**1. Cada capa é lida uma única vez.** O cache LRU mantém as últimas N capas em RAM
+(`texcache.c:120-180`). Voltar a um jogo já visitado não toca no dispositivo.
+
+**2. Rolagem rápida não gera I/O.** A trava está em `texcache.c:143`:
+
+```c
+if (guiInactiveFrames < list->delay)
+    return NULL;
+```
+
+Enquanto o usuário segura o direcional, `guiInactiveFrames` é zerado a cada frame
+(`gui.c:1474-1481`) e **nenhuma requisição é enfileirada**. As leituras só começam quando ele
+para. `MENU_MIN_INACTIVE_FRAMES = 8` (`iosupport.h:56`), ajustável por dispositivo via
+`usb_frames_delay`.
+
+**3. A leitura nunca bloqueia o frame.** Tudo vai para a thread de I/O
+(`ioPutRequest(IO_CACHE_LOAD_ART, req)`). A interface se mantém a 60 fps enquanto o pendrive lê.
+
+**4. Slot reciclado não corrompe.** Se a entrada de cache for reaproveitada antes de a leitura
+terminar, o `cacheUID` não confere e o resultado é descartado (`texcache.c:33-35`).
+
+### O que muda numa grade
+
+Na lista clássica do OPL há **uma** capa visível. Numa grade há **oito**. Parar numa página nova
+não custa uma leitura — custa oito aberturas de arquivo no FAT mais ~240 KB de dados.
+
+E o custo dominante provavelmente **não é o volume de dados**, e sim a **abertura de arquivo**:
+cada `open()` em `mass0:` via `bdmfs_fatfs` percorre diretório e cadeia de clusters. A USB do PS2
+é **USB 1.1** (~700 KB/s a 1 MB/s na prática).
+
+**Estes números precisam ser medidos, não estimados.** Ver a tarefa de medição adicionada à Fase 0.
+
+### Decisões de projeto decorrentes
+
+**Prioridade de carregamento.** O OPL enfileira as requisições na ordem de desenho
+(`drawGameImage` → `getGameImageTexture` → `cacheGetTexture`). Numa grade isso é a ordem errada.
+
+O `CoverGrid` separa as duas passagens:
+
+```
+passagem 1 (pedir):   capa em foco → vizinhas imediatas → resto da página
+passagem 2 (desenhar): ordem de layout normal
+```
+
+Assim a capa que o usuário está olhando aparece primeiro e o resto preenche atrás dela.
+
+**Cache de 24 entradas em vez de 16.** Com 8 capas por página, 24 entradas cobrem 3 páginas —
+avançar e voltar uma página é sempre instantâneo. Custo: **1,27 MB**, confortável dentro da folga
+de 4,0 MB.
+
+**Placeholder de tamanho fixo.** O slot tem dimensão constante; só o conteúdo muda quando a capa
+chega. O layout nunca se reorganiza.
+
+**Pré-carregamento direcional.** Ao mover o foco, enfileirar a próxima capa na direção do
+movimento — uma requisição por movimento, não uma varredura.
+
+### Plano B condicional: `RH/covers.pak`
+
+Se a medição mostrar que a abertura de arquivos domina o custo, a solução é agrupar todas as capas
+num arquivo único:
+
+```
+RH/covers.pak     capas concatenadas, geradas pelo RetroHub Manager
+                  offsets e tamanhos vivem no library.idx
+```
+
+Ganho: **uma abertura de arquivo mantida aberta** em vez de N, com `lseek` direto para cada capa.
+Elimina a travessia de FAT por capa, que é o custo suspeito.
+
+**Não é compromisso do projeto.** É uma otimização condicional da Fase 5, adotada apenas se os
+números justificarem. O fallback para PNGs soltos em `ART/` é automático e permanente — quem não
+usa o Manager continua funcionando (regra RI-8).
+
+---
+
 ## Critérios de aceite (atualiza a Fase 5 do plano)
 
 - [ ] Capa individual: ≤ 53 KB em RAM (192×276 T8 + CLUT)
-- [ ] Cache de 16 capas: ≤ 845 KB
+- [ ] Cache de 24 capas: ≤ 1,27 MB
 - [ ] Heap total da UI: ≤ 8 MB
 - [ ] 60 fps (NTSC) / 50 fps (PAL) estáveis com rolagem rápida contínua na grade
 - [ ] Segurar o direcional não dispara I/O

@@ -83,8 +83,8 @@ que dá forma ao produto.
 
 | Recurso | Orçamento |
 |---|---|
-| Heap da interface | ≤ 8 MB (uso previsto: 3,4 MB) |
-| Cache de 16 capas | 845 KB |
+| Heap da interface | ≤ 8 MB (uso previsto: 4,0 MB) |
+| Cache de 24 capas | 1,27 MB (cobre 3 páginas de grade) |
 | Primitivas de desenho por frame | ≤ 80 |
 | Taxa de quadros | 60 (NTSC) / 50 (PAL) estáveis |
 | Tempo até a tela inicial | ≤ 3 s |
