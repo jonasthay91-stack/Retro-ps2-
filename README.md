@@ -29,6 +29,7 @@ proposta de arquitetura do RetroHub. A implementação começa pela Fase 0 do pl
 | [**05 — RetroHub Manager (PC)**](docs/05-retrohub-manager-pc.md) | Especificação do aplicativo de PC |
 | [**06 — Decisão: formato das capas**](docs/06-decisao-capas.md) | Capa única 192×276 em PNG paletizado 8 bits — a escolha mais leve e mais simples |
 | [**07 — Identidade visual**](docs/07-identidade-visual.md) | O que foi aproveitado e rejeitado das referências, e a assinatura visual: a capa vira o fundo |
+| [**08 — Console de teste**](docs/08-console-de-teste.md) | Como preparar um PS2 para receber builds — pré-requisito da Fase 0 |
 
 ---
 

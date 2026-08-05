@@ -29,15 +29,18 @@ possíveis dentro dos orçamentos.
 **Objetivo.** Ter um ponto de comparação confiável antes de tocar em qualquer coisa.
 
 ### Tarefas
-1. Fork de `ps2homebrew/Open-PS2-Loader`; `master` espelha o upstream, trabalho em `retrohub/*`.
-2. Reproduzir o build oficial: `make clean release` no container
+1. **Preparar o console de teste** — ponto de entrada, FreeMcBoot no Memory Card e pendrive em
+   exFAT com o OPL original preservado como baseline
+   (ver [`08-console-de-teste.md`](08-console-de-teste.md)). Sem isso nada da Fase 0 é verificável.
+2. Fork de `ps2homebrew/Open-PS2-Loader`; `master` espelha o upstream, trabalho em `retrohub/*`.
+3. Reproduzir o build oficial: `make clean release` no container
    `ghcr.io/ps2homebrew/ps2homebrew:main`. Comparar o ELF com o release oficial.
-3. Montar o **conjunto de regressão**: 20 jogos cobrindo CD, DVD single-layer, DVD dual-layer,
+4. Montar o **conjunto de regressão**: 20 jogos cobrindo CD, DVD single-layer, DVD dual-layer,
    ZSO, UL multi-parte, jogo com VMC, jogo com cheats, jogo com GSM.
-4. Gravar o baseline: cada um dos 20 jogos rodando no OPL original, em hardware real.
-5. Medir e registrar o baseline de desempenho: tempo de boot, FPS, pico de heap, tempo de
+5. Gravar o baseline: cada um dos 20 jogos rodando no OPL original, em hardware real.
+6. Medir e registrar o baseline de desempenho: tempo de boot, FPS, pico de heap, tempo de
    ordenação — com 0, 100 e 1.000 jogos.
-6. **Medir o custo de carregar uma capa** — o número que decide o desenho da grade. Separar as
+7. **Medir o custo de carregar uma capa** — o número que decide o desenho da grade. Separar as
    três parcelas, em cada dispositivo (USB, MX4SIO, iLink, HDD interno, SMB):
 
    | Parcela | Como medir |
@@ -53,10 +56,10 @@ possíveis dentro dos orçamentos.
    `RH/covers.pak` (ver [`06-decisao-capas.md`](06-decisao-capas.md#plano-b-condicional-rhcoverspak));
    se o volume de dados dominar, a alavanca é comprimir mais a capa; se a decodificação dominar,
    a alavanca é reduzir a resolução.
-7. CI: build da matriz + `clang-format` + **guarda que falha se um commit tocar
+8. CI: build da matriz + `clang-format` + **guarda que falha se um commit tocar
    `ee_core/`, `modules/`, `src/system.c`, `src/ioprp.c`, `src/xparam.c` sem a label
    `engine-change`**.
-8. Criar `DIVERGENCIAS.md`.
+9. Criar `DIVERGENCIAS.md`.
 
 ### Critérios de aceite
 - [ ] Build reproduz o ELF oficial
@@ -141,13 +144,13 @@ cartão preparado pelo RetroHub.
 4. Implementar `TabBar`, `HubList`, `SearchBox`, `StatusBar`, `AttributeBadge`.
 5. Implementar `CoverBackdrop` — a capa em foco esticada a 640×480 e escurecida, com fade de
    ~8 frames na troca (ver [`07-identidade-visual.md`](07-identidade-visual.md)).
-5. Novas seções de tela no parser: `hubN`, `gridN`, `searchN`.
-6. Layout embutido de fallback para temas sem essas seções.
-7. Extensão do `texcache`: cache de **24 entradas** e pré-carregamento direcional. **Sem alterar a
+6. Novas seções de tela no parser: `hubN`, `gridN`, `searchN`.
+7. Layout embutido de fallback para temas sem essas seções.
+8. Extensão do `texcache`: cache de **24 entradas** e pré-carregamento direcional. **Sem alterar a
    semântica de `qr`/`UID`.**
-8. **Prioridade de carregamento na grade:** separar a passagem de requisição da passagem de
+9. **Prioridade de carregamento na grade:** separar a passagem de requisição da passagem de
    desenho. Pedir na ordem `foco → vizinhas → resto da página`; desenhar na ordem de layout.
-9. Limite de tamanho de arquivo PNG (256 KB) antes do `malloc` em `textures.c:430`.
+10. Limite de tamanho de arquivo PNG (256 KB) antes do `malloc` em `textures.c:430`.
 
 ### Critérios de aceite
 - [ ] 5 temas legados renderizam idênticos ao baseline
