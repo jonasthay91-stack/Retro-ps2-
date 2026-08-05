@@ -17,6 +17,7 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 RH_ROOT="$PWD"
 PATCH_DIR="$RH_ROOT/patches"
+OVERLAY_DIR="$RH_ROOT/overlay"
 
 MODE="apply"
 FORK=""
@@ -66,8 +67,16 @@ shopt -s nullglob
 PATCHES=("$PATCH_DIR"/*.patch)
 shopt -u nullglob
 
-if [ ${#PATCHES[@]} -eq 0 ]; then
-    echo "==> nenhum patch em patches/ — nada a fazer"
+# Arquivos novos (rh_*.c, rh_*.h) sao copiados inteiros, nao aplicados como
+# patch: nao existe nada no OPL com que eles conflitem, e um arquivo legivel
+# vale mais que um diff gigante contra /dev/null. Caminhos relativos a overlay/.
+overlay_files() {
+    [ -d "$OVERLAY_DIR" ] || return 0
+    ( cd "$OVERLAY_DIR" && find . -type f | sed 's|^\./||' | sort )
+}
+
+if [ ${#PATCHES[@]} -eq 0 ] && [ -z "$(overlay_files)" ]; then
+    echo "==> nada em patches/ nem em overlay/ — nada a fazer"
     exit 0
 fi
 
@@ -93,6 +102,16 @@ status)
         esac
         printf '  %-14s %s\n' "$mark" "$(basename "$p")"
     done
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        if [ -f "$FORK/$f" ] && cmp -s "$OVERLAY_DIR/$f" "$FORK/$f"; then
+            printf '  %-14s %s\n' "[x] copiado" "$f"
+        elif [ -f "$FORK/$f" ]; then
+            printf '  %-14s %s\n' "[~] DIFERE" "$f"
+        else
+            printf '  %-14s %s\n' "[ ] ausente" "$f"
+        fi
+    done <<< "$(overlay_files)"
     ;;
 
 apply)
@@ -118,6 +137,20 @@ apply)
     done
     echo "==> $APPLIED patch(es) novo(s) aplicado(s)"
 
+    COPIED=0
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        if [ -f "$FORK/$f" ] && cmp -s "$OVERLAY_DIR/$f" "$FORK/$f"; then
+            echo "  ja copiado: $f"
+        else
+            mkdir -p "$FORK/$(dirname "$f")"
+            cp -f "$OVERLAY_DIR/$f" "$FORK/$f"
+            echo "  copiado:    $f"
+            COPIED=$((COPIED + 1))
+        fi
+    done <<< "$(overlay_files)"
+    [ "$COPIED" -gt 0 ] && echo "==> $COPIED arquivo(s) do overlay copiado(s)"
+
     if [ -x "$RH_ROOT/tools/check-engine-frozen.sh" ]; then
         echo "==> verificando o congelamento do motor"
         ( cd "$FORK" && "$RH_ROOT/tools/check-engine-frozen.sh" )
@@ -131,6 +164,18 @@ EOF
     ;;
 
 revert)
+    while IFS= read -r f; do
+        [ -z "$f" ] && continue
+        # So remove o que e identico ao nosso: se o arquivo foi editado no fork,
+        # apagar destruiria trabalho de quem editou.
+        if [ -f "$FORK/$f" ] && cmp -s "$OVERLAY_DIR/$f" "$FORK/$f"; then
+            rm -f "$FORK/$f"
+            echo "  removido:    $f"
+        elif [ -f "$FORK/$f" ]; then
+            echo "  MANTIDO (foi editado no fork): $f"
+        fi
+    done <<< "$(overlay_files)"
+
     # De tras para frente, para que patches encadeados saiam na ordem certa.
     for ((i = ${#PATCHES[@]} - 1; i >= 0; i--)); do
         p="${PATCHES[$i]}"; name=$(basename "$p")

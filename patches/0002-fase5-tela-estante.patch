@@ -1,0 +1,108 @@
+diff --git a/Makefile b/Makefile
+index d02af90..45064a8 100644
+--- a/Makefile
++++ b/Makefile
+@@ -73,7 +73,7 @@ endif
+ 
+ FRONTEND_OBJS = pad.o xparam.o fntsys.o renderman.o menusys.o OSDHistory.o system.o lang.o lang_internal.o config.o hdd.o dialogs.o \
+ 		dia.o ioman.o texcache.o themes.o supportbase.o bdmsupport.o ethsupport.o hddsupport.o zso.o lz4.o \
+-		appsupport.o gui.o guigame.o vmc_groups.o textures.o opl.o atlas.o nbns.o httpclient.o gsm.o cheatman.o sound.o ps2cnf.o
++		appsupport.o gui.o guigame.o rh_shelf.o vmc_groups.o textures.o opl.o atlas.o nbns.o httpclient.o gsm.o cheatman.o sound.o ps2cnf.o
+ 
+ IOP_OBJS =	iomanx.o filexio.o ps2fs.o usbd.o bdmevent.o \
+ 		bdm.o bdmfs_fatfs.o usbmass_bd.o iLinkman.o IEEE1394_bd.o mx4sio_bd.o \
+diff --git a/include/gui.h b/include/gui.h
+index 44c6974..3492c7e 100644
+--- a/include/gui.h
++++ b/include/gui.h
+@@ -58,6 +58,8 @@ extern int guiFrameId;
+ #define GUI_SCREEN_INFO      2
+ #define GUI_SCREEN_GAME_MENU 3
+ #define GUI_SCREEN_APP_MENU  4
++// RetroHub: tela "Estante". Convive com GUI_SCREEN_MAIN, nao a substitui.
++#define GUI_SCREEN_SHELF     5
+ 
+ void guiSwitchScreen(int target);
+ 
+diff --git a/include/menusys.h b/include/menusys.h
+index 0cbf9bf..2dce052 100644
+--- a/include/menusys.h
++++ b/include/menusys.h
+@@ -114,6 +114,8 @@ void menuHandleInputAppMenu();
+ 
+ // Sets the selected item if it is found in the menu list
+ void menuSetSelectedItem(menu_item_t *item);
++// RetroHub: a estante precisa da lista ativa, que so menusys.c enxerga.
++menu_item_t *menuGetSelectedItem(void);
+ 
+ void menuAddHint(menu_item_t *menu, int text_id, int icon_id);
+ void menuRemoveHints(menu_item_t *menu);
+diff --git a/src/gui.c b/src/gui.c
+index 1054228..56ca295 100644
+--- a/src/gui.c
++++ b/src/gui.c
+@@ -22,6 +22,7 @@
+ #include "include/cheatman.h"
+ #include "include/sound.h"
+ #include "include/guigame.h"
++#include "include/rh_shelf.h"
+ 
+ #include <limits.h>
+ #include <stdlib.h>
+@@ -87,7 +88,10 @@ static gui_screen_handler_t screenHandlers[] = {{&menuHandleInputMain, &menuRend
+                                                 {&menuHandleInputMenu, &menuRenderMenu, 1},
+                                                 {&menuHandleInputInfo, &menuRenderInfo, 1},
+                                                 {&menuHandleInputGameMenu, &menuRenderGameMenu, 1},
+-                                                {&menuHandleInputAppMenu, &menuRenderAppMenu, 1}};
++                                                {&menuHandleInputAppMenu, &menuRenderAppMenu, 1},
++                                                // RetroHub: inMenu = 0, a estante e uma vista da
++                                                // lista de jogos, nao uma caixa de dialogo por cima.
++                                                {&rhShelfHandleInput, &rhShelfRender, 0}};
+ 
+ // default screen handler (menu screen)
+ static gui_screen_handler_t *screenHandler = &screenHandlers[GUI_SCREEN_MENU];
+@@ -115,6 +119,8 @@ void guiReloadScreenExtents()
+ 
+ void guiInit(void)
+ {
++    rhShelfInit();
++
+     guiFrameId = 0;
+     guiInactiveFrames = 0;
+ 
+@@ -163,6 +169,8 @@ void guiInit(void)
+ 
+ void guiEnd()
+ {
++    rhShelfEnd();
++
+     if (gBackgroundTex.Mem)
+         free(gBackgroundTex.Mem);
+ 
+diff --git a/src/menusys.c b/src/menusys.c
+index 972f332..e3a57ee 100644
+--- a/src/menusys.c
++++ b/src/menusys.c
+@@ -954,6 +954,11 @@ void menuRenderMain(void)
+     }
+ }
+ 
++menu_item_t *menuGetSelectedItem(void)
++{
++    return selected_item ? selected_item->item : NULL;
++}
++
+ void menuHandleInputMain()
+ {
+     if (getKey(KEY_LEFT)) {
+@@ -986,6 +991,10 @@ void menuHandleInputMain()
+         menuFirstPage();
+     } else if (getKeyOn(KEY_R2)) { // end
+         menuLastPage();
++    } else if (getKeyOn(KEY_R3)) {
++        // RetroHub: alterna para a estante. R3 esta livre no OPL e exige apertar
++        // o analogico, o que torna o acionamento acidental improvavel.
++        guiSwitchScreen(GUI_SCREEN_SHELF);
+     }
+ 
+     // Last Played Auto Start
