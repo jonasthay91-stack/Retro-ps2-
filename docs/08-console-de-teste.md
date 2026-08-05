@@ -9,65 +9,71 @@
 
 ---
 
-## 1. Se o console já roda OPL pelo pendrive, pule para a seção 3
+## 1. O Memory Card é a chave — e não dá para eliminá-la
 
-**O caso mais comum, e o mais fácil.** Se o console já lança o `OPNPS2LD.ELF` de um pendrive,
-então o ponto de entrada **já está resolvido** — há FreeMcBoot (ou equivalente) instalado no
-Memory Card, e nada mais precisa ser feito nessa frente.
+O **FreeMcBoot no Memory Card é o exploit**. É ele que faz o console aceitar executar código não
+assinado. Sem ele o PS2 não roda nada, venha de onde vier — pendrive, HD ou rede.
 
-Nesse cenário:
+Num **slim sem leitor óptico funcionando**, não existe caminho por software para dispensá-lo:
 
-- **Nenhum disco é necessário.** Nem para instalar, nem para rodar, nem para testar.
-- **Leitor óptico quebrado ou ausente não é problema.** O OPL lê tudo do pendrive, e os jogos
-  também — o drive nunca é usado.
-- **Instalar uma build nova = copiar um arquivo.**
+| Alternativa | Por que não serve aqui |
+|---|---|
+| FreeHDBoot | Exige HD interno; o slim não tem baia de expansão |
+| FreeDVDBoot | Exige leitor óptico funcionando |
+| Modchip | Elimina o cartão, mas é solução de hardware |
 
-Vá direto para a seção 3.
+**Isso não é burocracia.** O cartão fica plugado e nunca mais é tocado — diferente de ter que pôr
+um disco a cada vez.
 
 ---
 
-## 2. Se o console ainda não roda homebrew
+## 2. O que move para o pendrive: tudo o mais
 
-### O mal-entendido mais comum
-
-> *"Gravo o OPL num CD e rodo."*
-
-**Não funciona num console de fábrica.** O PS2 verifica a autenticação do disco e recusa mídia
-gravada com código não assinado.
-
-Também não basta copiar o `OPNPS2LD.ELF` para o Memory Card: isso apenas guarda um arquivo. O que
-torna o console capaz de bootar homebrew é o **FreeMcBoot instalado**, que tem um instalador
-próprio.
-
-### As camadas
+O Memory Card guarda **apenas o FMCB**, poucos KB. O sistema inteiro vive no pendrive ou HD:
 
 ```
-┌─────────────────────────────────────────────────────┐
-│  1. PONTO DE ENTRADA        (uma vez, o passo chato) │
-│     FreeDVDBoot (DVD-R) · MC pronto com FMCB ·       │
-│     modchip                                          │
-└───────────────────────┬─────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────┐
-│  2. FreeMcBoot no Memory Card         (uma vez)      │
-│     Faz o console bootar homebrew ao ligar           │
-│     Ocupa poucos KB — é só a chave de ignição        │
-└───────────────────────┬─────────────────────────────┘
-                        ▼
-┌─────────────────────────────────────────────────────┐
-│  3. Pendrive                    (o sistema inteiro)  │
-│     RETROHUB.ELF · jogos · ART/ · THM/ · CFG/ · VMC/ │
-└─────────────────────────────────────────────────────┘
+   Memory Card                    Pendrive / HD
+   ───────────────                ──────────────────────────────
+   FMCB                           RETROHUB.ELF     ← nossa build
+   (chave de ignição,             OPNPS2LD.ELF     ← plano B
+    poucos KB)                    CD/  DVD/  ART/  CFG/
+                                  THM/ LNG/  VMC/  CHT/  APPS/
+                                  RH/
 ```
 
-| Caminho de entrada | Mídia | Observação |
+Com isso, atualizar o launcher passa a ser **copiar um arquivo no PC** — em vez de abrir o
+uLaunchELF e copiar para o cartão a cada iteração. É exatamente o ciclo que o desenvolvimento
+precisa.
+
+### Configurar o FMCB para lançar do pendrive
+
+1. Copie o ELF para a **raiz do pendrive**
+2. Boote no FMCB e abra o **FMCB Configurator**
+3. Em **OSDSYS Menu Items**, aponte um item para `mass:/RETROHUB.ELF`
+4. Salve a configuração no cartão
+
+**Use os caminhos alternativos.** O FMCB aceita mais de um caminho por item, tentados em ordem:
+
+| Ordem | Caminho | Papel |
 |---|---|---|
-| **FreeDVDBoot** | **DVD-R** | Explora o player de DVD embutido. **Não é CD-R.** Compatibilidade depende de modelo e firmware |
-| **Memory Card já com FMCB** | — | O mais simples: chega pronto, é só plugar |
-| **Modchip** | — | Solução de hardware |
+| Path1 | `mass:/RETROHUB.ELF` | a build em teste |
+| Path2 | `mass:/OPNPS2LD.ELF` | OPL estável no pendrive |
+| Path3 | `mc0:/APPS/OPNPS2LD.ELF` | OPL no cartão, último recurso |
 
-Depois disso o Memory Card guarda apenas o FMCB, que pode lançar um ELF **direto do pendrive**
-(`mass:/RETROHUB.ELF`). É a configuração recomendada.
+Se o pendrive não estiver plugado, ou se a build em teste travar, ele cai sozinho no próximo.
+**Nunca se fica sem sistema** — o que importa quando se está testando código novo toda semana.
+
+**Se o ELF não for encontrado:** o FMCB pode estar lançando antes de o pendrive ser enumerado.
+Há um ajuste de espera por USB nas configurações.
+
+### E se o console ainda não tiver FMCB
+
+Nesse caso é preciso um ponto de entrada primeiro: **FreeDVDBoot** gravado em **DVD-R** (não CD-R —
+o exploit é do player de DVD, e a compatibilidade depende de modelo e firmware), um **Memory Card
+já vendido com FMCB**, ou um **modchip**. Depois disso, o fluxo acima se aplica igual.
+
+Detalhe que confunde: **copiar o `OPNPS2LD.ELF` para o cartão não faz o console bootá-lo.** Isso
+apenas guarda um arquivo. O que dá o poder de boot é o FMCB instalado, que tem instalador próprio.
 
 ---
 
