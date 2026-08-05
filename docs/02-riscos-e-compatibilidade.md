@@ -184,7 +184,7 @@ frame. Em 640×448 CT24 o framebuffer duplo já consome ~2,3 MB. Sobram ~1,7 MB 
 **Mitigação.**
 1. Texturas paletizadas (T8) — mesma economia do R-02, agora em VRAM.
 2. Confiar no `gsKit_TexManager` (já faz expulsão por frame). Com capa única de 192×276 em T8, as
-   9 texturas visíveis somam ~477 KB de VRAM — cabe folgado no espaço restante após o framebuffer
+   7 texturas visíveis somam ~371 KB de VRAM — cabe folgado no espaço restante após o framebuffer
    duplo.
 3. Considerar `GS_PSM_CT16` para capas quando em modo HIRES.
 

@@ -290,38 +290,97 @@ ler nenhum jogo.** Aparece assim que o índice é lido — sub-segundo. Satisfaz
 Indicadores de dispositivo (`USB ● HDD ●`) vêm de `menuItem.visible` de cada `item_list_t` — dado
 já mantido pelo OPL.
 
-### 3.3 Tela de jogos (grade de capas)
+### 3.3 Tela de jogos (grade de capas) — **visualização principal**
+
+A grade é o modo padrão do RetroHub. A lista clássica do OPL continua disponível como modo
+alternativo, mas não é o caminho principal.
+
+#### Geometria (padrão do tema)
+
+Espaço virtual 640×480. Margem de segurança de 32 px (6,7% — overscan de CRT), cabeçalho de 36 px
+e barra de dicas de 28 px deixam **576×352** para o conteúdo.
+
+| Parâmetro | Valor |
+|---|---|
+| Grade | **3 colunas × 2 linhas = 6 capas visíveis** |
+| Slot | **118 × 170** |
+| Gap | 12 px |
+| Largura da grade | 378 px |
+| Painel lateral | 182 px |
+| Escala da textura (192×276 → 118×170) | **0,61×** |
+
+#### Por que 3×2 e não uma grade mais densa
+
+A densidade é limitada por dois fatores, e ambos apontam para o mesmo lugar:
+
+| Grade | Slot | Escala | Painel | Veredito |
+|---|---|---|---|---|
+| **3×2** | 118×170 | **0,61×** | 182 px | **Escolhido** |
+| 4×2 | 118×170 | 0,61× | 52 px | Painel inutilizável |
+| 4×3 | 76×110 | **0,40×** | 226 px | Escala abaixo de 0,5× |
+| 5×3 | 76×110 | **0,40×** | 140 px | Escala abaixo de 0,5× |
+
+**O limite técnico é a escala de 0,5×.** O GS faz redução bilinear com apenas 2×2 amostras; abaixo
+de metade do tamanho original ele começa a pular texels e a imagem serrilha. Uma grade de 12 ou 15
+capas exigiria escala de 0,40× — ou seja, texturas de origem menores, o que contradiz o requisito
+de capas grandes.
+
+**3×2 é o ponto onde capa grande, painel legível e qualidade de redução coexistem.**
+
+`CoverGrid` mantém `cols`/`rows`/`cover_w`/`cover_h` configuráveis por tema — quem quiser uma grade
+densa pode, desde que forneça capas de origem proporcionalmente menores.
+
+#### Foco sem tremor de layout
+
+O slot tem tamanho fixo. O que muda entre focado e não focado é o preenchimento dele:
+
+- **Focado:** a capa preenche o slot inteiro (118×170), sem escurecimento
+- **Não focado:** desenhada a 92% centrada no slot (108×156), com `rmDrawRect` escuro por cima
+
+Isso dá diferença de escala **e** de contraste sem nunca reorganizar a grade. Nada se desloca
+quando o foco muda.
+
+#### Divisão de informação
+
+O requisito lista 11 campos por jogo. Eles não cabem — nem deveriam — todos no painel de 182 px:
+
+| Onde | Campos |
+|---|---|
+| **Painel da grade** (navegação) | Capa, nome, ano, desenvolvedora, gênero, favorito |
+| **Tela de detalhes** (□) | Os 11 campos completos, incluindo jogadores, região, código do disco, compatibilidade e última vez jogado |
+
+A tela de detalhes já existe no OPL (`GUI_SCREEN_INFO`) e é reaproveitada.
+
+
 
 ```
-┌────────────────────────────────────────────────────────────────┐
-│  ← PS2                              🔍 Busca      Nome ▼   428 │
-│ ┌──────────────────────────────────┐ ┌───────────────────────┐ │
-│ │ ┏━━━━━┓  ┌─────┐  ┌─────┐  ┌───┐ │ │ Shadow of the Colossus│ │
-│ │ ┃     ┃  │     │  │     │  │   │ │ │                       │ │
-│ │ ┃CAPA ┃  │     │  │     │  │   │ │ │ 2005 · Team Ico       │ │
-│ │ ┃FOCO ┃  │     │  │     │  │   │ │ │ Aventura · 1 jogador  │ │
-│ │ ┗━━━━━┛  └─────┘  └─────┘  └───┘ │ │ NTSC-U · SCUS_974.72  │ │
-│ │                                  │ │                       │ │
-│ │ ┌─────┐  ┌─────┐  ┌─────┐  ┌───┐ │ │ Compat.  ★★★★★        │ │
-│ │ │     │  │     │  │     │  │   │ │ │ Jogado   há 2 dias    │ │
-│ │ │     │  │     │  │     │  │   │ │ │ ★ Favorito            │ │
-│ │ └─────┘  └─────┘  └─────┘  └───┘ │ │                       │ │
-│ └──────────────────────────────────┘ └───────────────────────┘ │
-│  ✕ Jogar   ▲ Opções   ■ Detalhes   ● Voltar   SELECT Busca     │
-└────────────────────────────────────────────────────────────────┘
+      32                        410   426                 608
+   32 ┌───────────────────────────────────────────────────────┐ 36px
+      │ ← PS2                        Busca    Nome ▼      428 │
+   68 ├─────────────────────────────────┬─────────────────────┤
+      │ ┏━━━━━━━┓ ┌───────┐ ┌───────┐   │ ┌─────────────────┐ │
+      │ ┃       ┃ │       │ │       │   │ │                 │ │
+      │ ┃ FOCO  ┃ │  92%  │ │  92%  │   │ │   CAPA EM FOCO  │ │
+      │ ┃118x170┃ │ +dim  │ │ +dim  │   │ │     176x253     │ │
+      │ ┗━━━━━━━┛ └───────┘ └───────┘   │ │                 │ │
+      │ ┌───────┐ ┌───────┐ ┌───────┐   │ └─────────────────┘ │
+      │ │       │ │       │ │       │   │ Shadow of the       │
+      │ │       │ │       │ │       │   │ Colossus            │
+      │ │       │ │       │ │       │   │ 2005 · Team Ico     │
+      │ └───────┘ └───────┘ └───────┘   │ Aventura       ★    │
+  420 ├─────────────────────────────────┴─────────────────────┤
+      │ X Jogar  /\ Opções  [] Detalhes  O Voltar  SELECT Buscar│ 28px
+  448 └───────────────────────────────────────────────────────┘
+        |<------------ 378 ------------>|<------ 182 ------->|
 ```
 
-**Decisão de projeto crítica:** existe **uma única textura de capa por jogo** (192×276, T8). O
-painel de detalhes a desenha em tamanho nativo; a grade desenha a mesma textura reduzida pelo GS
-em hardware (~128×184). Isso resolve R-02 (RAM) e R-09 (VRAM) e, principalmente, elimina a
-complexidade de dois caches e quatro estados de carregamento — ver
-[`06-decisao-capas.md`](06-decisao-capas.md).
+**Uma única textura de capa por jogo** (192×276, T8) serve os dois usos: o painel a desenha a
+176×253 (0,92×) e a grade a 118×170 (0,61×), ambas reduções feitas pelo GS em hardware. Isso
+resolve R-02 (RAM) e R-09 (VRAM) e elimina a complexidade de dois caches e quatro estados de
+carregamento — ver [`06-decisao-capas.md`](06-decisao-capas.md).
 
-Contagem de primitivas: 8 capas reduzidas + 1 capa em foco + moldura + ~10 textos + cabeçalho + rodapé
-≈ **35 primitivas**. Confortável.
-
-**Painel lateral** exibe todos os campos exigidos: capa (a em foco), nome, ano, desenvolvedora,
-gênero, número de jogadores, região, código do disco, compatibilidade, última vez jogado, favorito.
+**Contagem de primitivas:** 6 capas da grade + 5 retângulos de escurecimento + 1 capa em foco +
+2 da moldura + ~8 textos + cabeçalho + rodapé ≈ **28 primitivas**. Bem dentro do teto de 80.
 
 ### 3.4 Busca
 
@@ -350,7 +409,7 @@ Configurável, para respeitar tanto o público quanto o hardware:
 
 | Modo | Capas visíveis | Custo | Quando |
 |---|---|---|---|
-| **Grade** (padrão) | 8 reduzidas + 1 em foco | ~35 prims | Uso normal |
+| **Grade** (padrão) | 6 reduzidas + 1 em foco | ~28 prims | Uso normal |
 | **Lista + capa** | 1 capa | ~25 prims | Bibliotecas gigantes, consoles lentos |
 | **Clássico OPL** | conforme o tema | — | Compatibilidade / preferência |
 
@@ -508,7 +567,7 @@ ART/<startup>_COV.png    192×276  PNG paletizado 8 bits  (~53 KB em RAM)
 ```
 
 **Não existe arquivo de miniatura.** A grade desenha essa mesma textura reduzida pelo GS em
-hardware (~128×184, escala 0,67×); o painel de detalhes a desenha no tamanho nativo.
+hardware (118×170, escala 0,61×); o painel a desenha a 176×253 (0,92×).
 
 Um arquivo só elimina dois caches, quatro estados de carregamento e a transição visual entre
 miniatura e capa — a simplificação que mais contribui para a fluidez.
@@ -526,7 +585,7 @@ Capas RGB legadas continuam funcionando, apenas mais pesadas (regra RI-8).
 ### 8.3 Política de cache
 
 Estende `texcache.c` sem alterar sua semântica (R-01/zona amarela):
-- **Um cache, 24 entradas ≈ 1,27 MB** (cobre 3 páginas de grade: atual, anterior e próxima)
+- **Um cache, 24 entradas ≈ 1,27 MB** (cobre 4 páginas de grade de 6 capas)
 - Pré-carregamento direcional: ao mover o foco, enfileira a próxima capa na direção do movimento
 - `guiInactiveFrames` continua governando quando é seguro carregar — o anti-thrash existente é
   exatamente o que uma grade precisa
@@ -581,7 +640,9 @@ upstream. Reduz a divergência e beneficia todo mundo.
 
 Pontos que precisam de validação prática antes de fechar:
 
-1. **Grade 4×2 vs 4×3 vs 5×3** — depende do teste de legibilidade em CRT real e do custo medido.
+1. ~~Densidade da grade~~ — **decidido: 3×2**. O limite é a escala de redução de 0,5× do GS;
+   grades densas exigiriam texturas de origem menores. Resta validar em CRT real se o slot de
+   118×170 e a margem de 32 px são confortáveis.
 2. **Se a busca precisa de índice invertido** — para ≤ 2.000 jogos, varredura linear sobre a
    tabela de strings provavelmente basta.
 3. **Se `RH/` fica por dispositivo ou centralizado** — por dispositivo é mais robusto (pendrive

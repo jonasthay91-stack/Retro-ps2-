@@ -46,7 +46,7 @@ possíveis dentro dos orçamentos.
    | `read()` do PNG | tempo por KB, com um PNG-8 de 192×276 (~30 KB) |
    | decodificação libpng | tempo de `texLoadAll` descontando I/O |
 
-   Medir também **8 capas em sequência** (uma página de grade) para capturar o custo agregado de
+   Medir também **6 capas em sequência** (uma página de grade) para capturar o custo agregado de
    abertura, que é o suspeito principal.
 
    **Decisão que este número destrava:** se a abertura de arquivo dominar, a Fase 5 adota
@@ -149,7 +149,7 @@ cartão preparado pelo RetroHub.
 
 ### Critérios de aceite
 - [ ] 5 temas legados renderizam idênticos ao baseline
-- [ ] Tema de teste com `CoverGrid` renderiza 8 capas + 1 em foco a 60 fps
+- [ ] Tema de teste com `CoverGrid` renderiza 6 capas + 1 em foco a 60 fps
 - [ ] Cache de 24 capas ≤ 1,27 MB; heap ≤ 8 MB
 - [ ] A capa em foco é sempre a primeira a aparecer ao entrar numa página
 - [ ] Primitivas/frame ≤ 80
@@ -211,8 +211,8 @@ cartão preparado pelo RetroHub.
 - [ ] 60 fps (NTSC) / 50 fps (PAL) estáveis durante rolagem rápida contínua
 - [ ] Heap ≤ 8 MB
 - [ ] Rolagem rápida não dispara I/O (o anti-thrash de `guiInactiveFrames` funciona na grade)
-- [ ] Entrar numa página nova preenche as 8 capas sem travar a navegação
-- [ ] Voltar a uma página já visitada é instantâneo (cache cobre 3 páginas)
+- [ ] Entrar numa página nova preenche as 6 capas sem travar a navegação
+- [ ] Voltar a uma página já visitada é instantâneo (cache cobre 4 páginas)
 - [ ] Jogo sem capa exibe placeholder de tamanho fixo **com o nome do jogo** — o layout não "pula"
       quando a capa chega, e "sem capa" é indistinguível de "carregando"
 - [ ] Biblioteca sem nenhuma arte continua totalmente navegável pelos títulos

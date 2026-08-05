@@ -1004,7 +1004,7 @@ Cinco fatos do código que economizam trabalho significativo:
    e um índice `recent.cfg` cobrem o requisito sem tocar em zona vermelha.
 
 3. **O cache assíncrono resolve "capas grandes".** `texcache.c` já tem anti-thrash por
-   `guiInactiveFrames`, LRU e validação por UID. Uma grade de capas 4×3 precisa apenas de um
+   `guiInactiveFrames`, LRU e validação por UID. Uma grade de capas precisa apenas de um
    `cacheCount` maior e de capas em **PNG paletizado (8 bits)**, que custam 1/4 da VRAM.
 
 4. **A vtable `item_list_t` isola completamente a UI dos dispositivos.** Uma interface nova pode

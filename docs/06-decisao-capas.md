@@ -11,8 +11,8 @@
 ## Decisão
 
 > **Uma capa por jogo: `ART/<startup>_COV.png`, 192×276, PNG paletizado de 8 bits (≤ 256 cores).**
-> A grade desenha essa mesma textura reduzida por hardware; o painel de detalhes a desenha no
-> tamanho nativo. **Não existe segundo arquivo de miniatura.**
+> A grade desenha essa mesma textura reduzida por hardware (118×170); o painel a desenha a
+> 176×253. **Não existe segundo arquivo de miniatura.**
 
 | Parâmetro | Valor |
 |---|---|
@@ -21,9 +21,9 @@
 | Formato | PNG **paletizado 8 bits**, ≤ 256 cores |
 | PSM no console | `GS_PSM_T8` + CLUT `GS_PSM_CT32` |
 | RAM por capa | 52.992 B + 1.024 B (CLUT) = **~53 KB** |
-| Cache | **24 entradas ≈ 1,27 MB** (3 páginas de grade) |
+| Cache | **24 entradas ≈ 1,27 MB** (4 páginas de 6 capas) |
 | Filtro | `GS_FILTER_LINEAR` (padrão do OPL) |
-| Escala na grade | ~128×184 (**0,67×**) |
+| Escala na grade | 118×170 (**0,61×**) · painel 176×253 (0,92×) |
 | Código novo necessário | **nenhum** |
 
 ---
@@ -250,7 +250,7 @@ passagem 2 (desenhar): ordem de layout normal
 
 Assim a capa que o usuário está olhando aparece primeiro e o resto preenche atrás dela.
 
-**Cache de 24 entradas em vez de 16.** Com 8 capas por página, 24 entradas cobrem 3 páginas —
+**Cache de 24 entradas em vez de 16.** Com 6 capas por página, 24 entradas cobrem 4 páginas —
 avançar e voltar uma página é sempre instantâneo. Custo: **1,27 MB**, confortável dentro da folga
 de 4,0 MB.
 
@@ -259,7 +259,7 @@ chega. O layout nunca se reorganiza. O que exatamente é desenhado está definid
 
 ### O que aparece quando não há capa
 
-Existem três estados possíveis num quadro da grade:
+Existem três estados possíveis em cada um dos 6 quadros da grade:
 
 | Estado | O que é desenhado |
 |---|---|
@@ -291,7 +291,7 @@ uma textura por 4 cantos — custa **2 primitivas** em vez de 1.
 
 | Onde | Moldura? | Motivo |
 |---|---|---|
-| Quadros da grade (128×184) | **Não** | 16 primitivas em vez de 8, e num quadro pequeno a moldura vira ruído visual |
+| Quadros da grade (118×170) | **Não** | 12 primitivas em vez de 6, e num quadro pequeno a moldura vira ruído visual |
 | Capa em foco no painel (192×276) | **Sim** | Tamanho suficiente para a moldura funcionar; custa 2 primitivas, uma vez só |
 
 **Pré-carregamento direcional.** Ao mover o foco, enfileirar a próxima capa na direção do
