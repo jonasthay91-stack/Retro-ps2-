@@ -123,23 +123,59 @@ SIZE=$(du -h "$OUT_NAME" | cut -f1)
 echo "==> $OUT_NAME  ($SIZE)"
 
 if [ "$DEST" = "auto" ]; then
-    # Procura mídia removível montada. Cobre os dois locais usuais das distros.
-    DEST=$(find "/run/media/$USER" "/media/$USER" /run/media /media \
-                -maxdepth 2 -mindepth 1 -type d 2>/dev/null \
-           | grep -v -E '^/(run/)?media/?$' | head -1)
-    if [ -z "$DEST" ]; then
-        cat >&2 <<EOF
-
-aviso: nenhum pendrive montado foi encontrado.
-       Plugue o dispositivo e abra-o no gerenciador de arquivos (isso monta),
-       depois rode de novo. Ou copie à mão:
-
-           cp $OUT_NAME /caminho/do/pendrive/
-
-EOF
-        DEST=""
+    # Procura mídia removível montada. Nem tudo que está montado serve: mídia de
+    # instalação de sistema costuma ser somente-leitura, e pode haver mais de um
+    # dispositivo. Filtra por gravabilidade e prefere quem já tem cara de PS2.
+    # findmnt devolve pontos de montagem reais. Um 'find' pegaria subpastas
+    # dentro deles (sources/, boot/...) e as trataria como dispositivos.
+    if command -v findmnt >/dev/null 2>&1; then
+        CANDIDATES=$(findmnt -rno TARGET 2>/dev/null | grep -E '^/(run/)?media/' | sort -u)
     else
-        echo "==> pendrive encontrado: $DEST"
+        CANDIDATES=$(find /run/media /media -maxdepth 3 -mindepth 1 -type d 2>/dev/null | sort -u)
+    fi
+    WRITABLE=""; BEST=""
+    while IFS= read -r d; do
+        [ -z "$d" ] && continue
+        touch "$d/.rh_write_test" 2>/dev/null || continue   # pula somente-leitura
+        rm -f "$d/.rh_write_test"
+        WRITABLE="${WRITABLE}${d}"$'\n'
+        if [ -f "$d/OPNPS2LD.ELF" ] || [ -f "$d/$OUT_NAME" ] \
+           || [ -d "$d/CD" ] || [ -d "$d/DVD" ] || [ -d "$d/ART" ]; then
+            BEST="$d"
+        fi
+    done <<EOF
+$CANDIDATES
+EOF
+
+    WCOUNT=$(printf '%s' "$WRITABLE" | grep -c . || true)
+    if [ -n "$BEST" ]; then
+        DEST="$BEST"
+        echo "==> pendrive do PS2 encontrado: $DEST"
+    elif [ "$WCOUNT" = "1" ]; then
+        DEST=$(printf '%s' "$WRITABLE" | head -1)
+        echo "==> único dispositivo gravável encontrado: $DEST"
+        echo "    (sem pastas do OPL ainda — confira se é mesmo o pendrive do PS2)"
+    else
+        {
+            echo
+            if [ "$WCOUNT" = "0" ]; then
+                echo "aviso: nenhum dispositivo gravável montado."
+                echo "       Plugue o pendrive do PS2 e abra-o no gerenciador de arquivos."
+                RO=$(printf '%s' "$CANDIDATES" | grep -c . || true)
+                [ "$RO" != "0" ] && {
+                    echo
+                    echo "       Montados, porém somente-leitura (ignorados):"
+                    printf '%s' "$CANDIDATES" | sed 's/^/         /'
+                }
+            else
+                echo "aviso: mais de um dispositivo gravável, e nenhum com pastas do OPL."
+                echo "       Escolha explicitamente com -o:"
+                echo
+                printf '%s' "$WRITABLE" | sed "s|^|         ./tools/build.sh -o |"
+            fi
+            echo
+        } >&2
+        DEST=""
     fi
 fi
 
