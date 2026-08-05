@@ -297,45 +297,77 @@ alternativo, mas não é o caminho principal.
 
 #### Geometria (padrão do tema)
 
-Espaço virtual 640×480. Margem de segurança de 32 px (6,7% — overscan de CRT), cabeçalho de 36 px
-e barra de dicas de 28 px deixam **576×352** para o conteúdo.
+**Alvo primário: adaptador HDMI em TV moderna.** Isso muda duas coisas em relação a um projeto
+pensado para tubo: não há overscan cortando as bordas, e a tela é 16:9.
+
+Margem de segurança de **16 px** (em vez dos 32 px que um CRT exigiria), cabeçalho de 36 px e barra
+de dicas de 28 px deixam **608 × 384** para o conteúdo.
 
 | Parâmetro | Valor |
 |---|---|
-| Grade | **3 colunas × 2 linhas = 6 capas visíveis** |
-| Slot | **118 × 170** |
+| Slot da capa | **128 × 184** |
 | Gap | 12 px |
-| Largura da grade | 378 px |
-| Painel lateral | 182 px |
-| Escala da textura (192×276 → 118×170) | **0,61×** |
+| Escala da textura (192×276 → 128×184) | **0,67×** |
+| Grade em **4:3** | 3 colunas × 2 linhas = **6 capas** · painel 184 px |
+| Grade em **16:9** | 4 colunas × 2 linhas = **8 capas** · painel 246 px |
 
-#### Por que 3×2 e não uma grade mais densa
+#### A grade se adapta ao aspecto — de graça
 
-A densidade é limitada por dois fatores, e ambos apontam para o mesmo lugar:
+O widescreen do OPL é **anamórfico**: `rmSetupQuad` multiplica larguras por 3/4 em 16:9, mas
+**não escala posições** (`renderman.c:271-289`). Consequência prática: em 16:9 a mesma capa ocupa
+96 unidades de coordenada em vez de 128, e **sobra espaço horizontal para uma coluna a mais**.
 
-| Grade | Slot | Escala | Painel | Veredito |
-|---|---|---|---|---|
-| **3×2** | 118×170 | **0,61×** | 182 px | **Escolhido** |
-| 4×2 | 118×170 | 0,61× | 52 px | Painel inutilizável |
-| 4×3 | 76×110 | **0,40×** | 226 px | Escala abaixo de 0,5× |
-| 5×3 | 76×110 | **0,40×** | 140 px | Escala abaixo de 0,5× |
+```
+4:3   ├─3 colunas─┤├painel┤     6 capas · painel 184
+      408 coord    184
 
-**O limite técnico é a escala de 0,5×.** O GS faz redução bilinear com apenas 2×2 amostras; abaixo
-de metade do tamanho original ele começa a pular texels e a imagem serrilha. Uma grade de 12 ou 15
-capas exigiria escala de 0,40× — ou seja, texturas de origem menores, o que contradiz o requisito
-de capas grandes.
+16:9  ├──4 colunas──┤├painel┤   8 capas · painel 246
+      411 coord      185
+```
 
-**3×2 é o ponto onde capa grande, painel legível e qualidade de redução coexistem.**
+Mesmo tamanho visual de capa, mesma escala de 0,67×, mesma linha de código. `CoverGrid` expõe
+`cols_4_3` e `cols_16_9` e escolhe conforme `gWideScreen`.
 
-`CoverGrid` mantém `cols`/`rows`/`cover_w`/`cover_h` configuráveis por tema — quem quiser uma grade
-densa pode, desde que forneça capas de origem proporcionalmente menores.
+#### Por que não uma grade mais densa
+
+A densidade tem um teto técnico. Com o conteúdo de 608×384 e duas linhas, o slot é de 184 px de
+altura — o que fixa a capa em 128 px de largura pela proporção da caixa de PS2.
+
+| Grade | Painel restante | Veredito |
+|---|---|---|
+| **4:3 · 3 col** | 184 px | **Escolhido** |
+| 4:3 · 4 col | 44 px | Painel inutilizável |
+| **16:9 · 4 col** | 246 px | **Escolhido** |
+| 16:9 · 5 col | 106 px | Painel inutilizável |
+| 3 linhas (qualquer) | — | Slot cai para ~110 px → escala **0,43×** |
+
+**O limite duro é a escala de 0,5×.** O GS reduz com bilinear de apenas 2×2 amostras; abaixo de
+metade do tamanho original ele pula texels e a imagem serrilha — e numa tela LCD nítida isso
+aparece muito mais do que apareceria num tubo. Três linhas de capas exigiriam texturas de origem
+menores, contradizendo o requisito de capas grandes.
+
+#### Recomendação de modo de vídeo: 480p
+
+Com adaptador HDMI, vale usar `GS_MODE_DTV_480P` (`renderman.c:41`) em vez do 480i padrão:
+
+- **Sem flicker de entrelaçamento.** Em 480i, linhas horizontais de 1 px tremem. Em 480p não.
+  Isso libera separadores finos, bordas de 1 px e texto menor.
+- **Nitidez real**, sem o `fPAR *= 2.0f` do modo interlaced frame (`renderman.c:400-403`).
+
+Continua sendo escolha do usuário — a lista de 14 modos do OPL é preservada intacta.
+
+#### E quem ainda usa tubo?
+
+Não é abandonado, e não custa nada: basta o tema declarar margem de 32 px. Nessa configuração a
+grade vira 3×2 em 4:3 (slot 118×170, escala 0,61×) e 4×2 em 16:9. **Uma linha de configuração de
+tema, zero código condicional.**
 
 #### Foco sem tremor de layout
 
 O slot tem tamanho fixo. O que muda entre focado e não focado é o preenchimento dele:
 
-- **Focado:** a capa preenche o slot inteiro (118×170), sem escurecimento
-- **Não focado:** desenhada a 92% centrada no slot (108×156), com `rmDrawRect` escuro por cima
+- **Focado:** a capa preenche o slot inteiro (128×184), sem escurecimento
+- **Não focado:** desenhada a 92% centrada no slot (118×169), com `rmDrawRect` escuro por cima
 
 Isso dá diferença de escala **e** de contraste sem nunca reorganizar a grade. Nada se desloca
 quando o foco muda.
@@ -354,33 +386,35 @@ A tela de detalhes já existe no OPL (`GUI_SCREEN_INFO`) e é reaproveitada.
 
 
 ```
-      32                        410   426                 608
-   32 ┌───────────────────────────────────────────────────────┐ 36px
-      │ ← PS2                        Busca    Nome ▼      428 │
-   68 ├─────────────────────────────────┬─────────────────────┤
-      │ ┏━━━━━━━┓ ┌───────┐ ┌───────┐   │ ┌─────────────────┐ │
-      │ ┃       ┃ │       │ │       │   │ │                 │ │
-      │ ┃ FOCO  ┃ │  92%  │ │  92%  │   │ │   CAPA EM FOCO  │ │
-      │ ┃118x170┃ │ +dim  │ │ +dim  │   │ │     176x253     │ │
-      │ ┗━━━━━━━┛ └───────┘ └───────┘   │ │                 │ │
-      │ ┌───────┐ ┌───────┐ ┌───────┐   │ └─────────────────┘ │
-      │ │       │ │       │ │       │   │ Shadow of the       │
-      │ │       │ │       │ │       │   │ Colossus            │
-      │ │       │ │       │ │       │   │ 2005 · Team Ico     │
-      │ └───────┘ └───────┘ └───────┘   │ Aventura       ★    │
-  420 ├─────────────────────────────────┴─────────────────────┤
-      │ X Jogar  /\ Opções  [] Detalhes  O Voltar  SELECT Buscar│ 28px
-  448 └───────────────────────────────────────────────────────┘
-        |<------------ 378 ------------>|<------ 182 ------->|
+   16   ┌───────────────────────────────────────────────────────┐
+        │ < PS2                        Busca    Nome v      428 │ 36
+   52   ├──────────────────────────────────────┬────────────────┤
+        │ #########  +-------+  +-------+      │ +------------+ │
+        │ #       #  |       |  |       |      │ |            | │
+        │ #  FOCO #  |  92%  |  |  92%  |      │ |    CAPA    | │
+        │ # 128x184  | +dim  |  | +dim  |      │ |   176x253  | │
+        │ #########  +-------+  +-------+      │ |            | │
+        │ +-------+  +-------+  +-------+      │ +------------+ │
+        │ |       |  |       |  |       |      │ Shadow of the  │
+        │ |       |  |       |  |       |      │ Colossus       │
+        │ |       |  |       |  |       |      │ 2005 Team Ico  │
+        │ +-------+  +-------+  +-------+      │ Aventura     * │
+  436   ├──────────────────────────────────────┴────────────────┤
+        │ X Jogar  /\ Opcoes  [] Detalhes  O Voltar  SEL Buscar │ 28
+  464   └───────────────────────────────────────────────────────┘
+          |<----------- 408 ------------>|<------ 184 ------->|
+
+    Em 16:9 entra uma quarta coluna no mesmo espaco (411 coord),
+    e o painel cresce para 246 visual. Mesma capa, mesma escala.
 ```
 
 **Uma única textura de capa por jogo** (192×276, T8) serve os dois usos: o painel a desenha a
-176×253 (0,92×) e a grade a 118×170 (0,61×), ambas reduções feitas pelo GS em hardware. Isso
+176×253 (0,92×) e a grade a 128×184 (0,67×), ambas reduções feitas pelo GS em hardware. Isso
 resolve R-02 (RAM) e R-09 (VRAM) e elimina a complexidade de dois caches e quatro estados de
 carregamento — ver [`06-decisao-capas.md`](06-decisao-capas.md).
 
-**Contagem de primitivas:** 6 capas da grade + 5 retângulos de escurecimento + 1 capa em foco +
-2 da moldura + ~8 textos + cabeçalho + rodapé ≈ **28 primitivas**. Bem dentro do teto de 80.
+**Contagem de primitivas:** 6–8 capas da grade + 5–7 retângulos de escurecimento + 1 capa em foco
++ 2 da moldura + ~8 textos + cabeçalho + rodapé ≈ **28–34 primitivas**. Bem dentro do teto de 80.
 
 ### 3.4 Busca
 
@@ -409,7 +443,7 @@ Configurável, para respeitar tanto o público quanto o hardware:
 
 | Modo | Capas visíveis | Custo | Quando |
 |---|---|---|---|
-| **Grade** (padrão) | 6 reduzidas + 1 em foco | ~28 prims | Uso normal |
+| **Grade** (padrão) | 6–8 reduzidas + 1 em foco | ~28–34 prims | Uso normal |
 | **Lista + capa** | 1 capa | ~25 prims | Bibliotecas gigantes, consoles lentos |
 | **Clássico OPL** | conforme o tema | — | Compatibilidade / preferência |
 
@@ -494,10 +528,10 @@ front-ends retrô"*.
 ### 5.2 Grid de layout
 
 Sobre o espaço virtual 640×480:
-- Margem externa: 32 px (seguro para overscan de TVs CRT)
+- Margem externa: 16 px (alvo HDMI/LCD, sem overscan) · 32 px no perfil CRT opcional
 - Coluna base: 8 px · Calha: 16 px
 - Altura de linha de texto: 22 px (contra os 19 px do OPL clássico — mais respiro)
-- Área segura de título: 576×416
+- Área útil: 608×448 (HDMI) · 576×416 (CRT)
 
 ### 5.3 Paleta padrão ("Midnight")
 
@@ -567,7 +601,7 @@ ART/<startup>_COV.png    192×276  PNG paletizado 8 bits  (~53 KB em RAM)
 ```
 
 **Não existe arquivo de miniatura.** A grade desenha essa mesma textura reduzida pelo GS em
-hardware (118×170, escala 0,61×); o painel a desenha a 176×253 (0,92×).
+hardware (128×184, escala 0,67×); o painel a desenha a 176×253 (0,92×).
 
 Um arquivo só elimina dois caches, quatro estados de carregamento e a transição visual entre
 miniatura e capa — a simplificação que mais contribui para a fluidez.
@@ -585,7 +619,7 @@ Capas RGB legadas continuam funcionando, apenas mais pesadas (regra RI-8).
 ### 8.3 Política de cache
 
 Estende `texcache.c` sem alterar sua semântica (R-01/zona amarela):
-- **Um cache, 24 entradas ≈ 1,27 MB** (cobre 4 páginas de grade de 6 capas)
+- **Um cache, 24 entradas ≈ 1,27 MB** (cobre 3 páginas em 16:9, 4 em 4:3)
 - Pré-carregamento direcional: ao mover o foco, enfileira a próxima capa na direção do movimento
 - `guiInactiveFrames` continua governando quando é seguro carregar — o anti-thrash existente é
   exatamente o que uma grade precisa
@@ -640,9 +674,9 @@ upstream. Reduz a divergência e beneficia todo mundo.
 
 Pontos que precisam de validação prática antes de fechar:
 
-1. ~~Densidade da grade~~ — **decidido: 3×2**. O limite é a escala de redução de 0,5× do GS;
-   grades densas exigiriam texturas de origem menores. Resta validar em CRT real se o slot de
-   118×170 e a margem de 32 px são confortáveis.
+1. ~~Densidade da grade~~ — **decidido: 3×2 em 4:3, 4×2 em 16:9**, slot 128×184. O limite é a
+   escala de redução de 0,5× do GS. Resta validar num painel real via adaptador HDMI se a margem
+   de 16 px não é cortada por alguma TV com overscan forçado.
 2. **Se a busca precisa de índice invertido** — para ≤ 2.000 jogos, varredura linear sobre a
    tabela de strings provavelmente basta.
 3. **Se `RH/` fica por dispositivo ou centralizado** — por dispositivo é mais robusto (pendrive
