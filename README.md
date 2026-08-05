@@ -105,8 +105,16 @@ A lista completa está em [`02-riscos-e-compatibilidade.md`](docs/02-riscos-e-co
 
 ## Próximo passo
 
-**Fase 0** — fork do OPL, build reproduzível e conjunto de 20 jogos de regressão testados em
-hardware real. Nenhuma mudança de interface antes disso.
+**Fase 0** — build reproduzível e conjunto de 20 jogos de regressão testados em hardware real.
+Nenhuma mudança de interface antes disso.
+
+```bash
+./tools/build.sh          # compila via container oficial; gera RETROHUB.ELF
+./tools/check-engine-frozen.sh   # verifica se algum caminho do motor foi tocado
+```
+
+O ciclo de teste é: compilar no PC, copiar o ELF para o pendrive, ligar o console. O PS2 nunca é
+conectado ao PC — ver [`08-console-de-teste.md`](docs/08-console-de-teste.md).
 
 ---
 

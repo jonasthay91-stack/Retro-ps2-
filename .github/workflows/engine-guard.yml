@@ -1,0 +1,49 @@
+name: Guarda do motor
+
+# Bloqueia alterações nos caminhos que fazem os jogos rodarem.
+# Regra RI-1 — ver docs/02-riscos-e-compatibilidade.md
+#
+# Para uma mudança deliberada e testada em hardware real, aplique a label
+# 'engine-change' no PR. Isso registra a intenção; não é um atalho.
+
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - master
+      - main
+
+jobs:
+  frozen-paths:
+    runs-on: ubuntu-latest
+    if: ${{ !contains(github.event.pull_request.labels.*.name, 'engine-change') }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verificar caminhos congelados
+        run: |
+          BASE="${{ github.event.pull_request.base.sha || github.event.before }}"
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "sem base de comparação utilizável; pulando."
+            exit 0
+          fi
+          bash tools/check-engine-frozen.sh "$BASE" "${{ github.sha }}"
+
+  engine-change-notice:
+    runs-on: ubuntu-latest
+    if: ${{ contains(github.event.pull_request.labels.*.name, 'engine-change') }}
+    steps:
+      - name: Registrar exceção
+        run: |
+          cat <<'EOF'
+          Este PR carrega a label 'engine-change': a guarda do motor foi
+          deliberadamente dispensada.
+
+          Antes do merge, confirme:
+            [ ] os 20 jogos de regressão foram testados em hardware real
+            [ ] a suíte cobriu CD, DVD SL, DVD DL, ZSO, UL, VMC, cheats e GSM
+            [ ] nenhuma struct compartilhada EE/IOP mudou de layout (RI-2)
+            [ ] a divergência está registrada em DIVERGENCIAS.md
+          EOF

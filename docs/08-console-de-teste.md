@@ -9,24 +9,43 @@
 
 ---
 
-## 1. O mal-entendido mais comum
+## 1. Se o console já roda OPL pelo pendrive, pule para a seção 3
+
+**O caso mais comum, e o mais fácil.** Se o console já lança o `OPNPS2LD.ELF` de um pendrive,
+então o ponto de entrada **já está resolvido** — há FreeMcBoot (ou equivalente) instalado no
+Memory Card, e nada mais precisa ser feito nessa frente.
+
+Nesse cenário:
+
+- **Nenhum disco é necessário.** Nem para instalar, nem para rodar, nem para testar.
+- **Leitor óptico quebrado ou ausente não é problema.** O OPL lê tudo do pendrive, e os jogos
+  também — o drive nunca é usado.
+- **Instalar uma build nova = copiar um arquivo.**
+
+Vá direto para a seção 3.
+
+---
+
+## 2. Se o console ainda não roda homebrew
+
+### O mal-entendido mais comum
 
 > *"Gravo o OPL num CD e rodo."*
 
 **Não funciona num console de fábrica.** O PS2 verifica a autenticação do disco e recusa mídia
-gravada com código não assinado. Gravar `OPNPS2LD.ELF` num CD-R e esperar que rode é o erro
-número um de quem começa.
+gravada com código não assinado.
 
-É preciso um **ponto de entrada** (exploit) antes. Depois disso, nunca mais se grava disco.
+Também não basta copiar o `OPNPS2LD.ELF` para o Memory Card: isso apenas guarda um arquivo. O que
+torna o console capaz de bootar homebrew é o **FreeMcBoot instalado**, que tem um instalador
+próprio.
 
----
-
-## 2. As três camadas
+### As camadas
 
 ```
 ┌─────────────────────────────────────────────────────┐
 │  1. PONTO DE ENTRADA        (uma vez, o passo chato) │
-│     FreeDVDBoot · MC pronto com FMCB · modchip       │
+│     FreeDVDBoot (DVD-R) · MC pronto com FMCB ·       │
+│     modchip                                          │
 └───────────────────────┬─────────────────────────────┘
                         ▼
 ┌─────────────────────────────────────────────────────┐
@@ -41,26 +60,14 @@ número um de quem começa.
 └─────────────────────────────────────────────────────┘
 ```
 
-### Camada 1 — ponto de entrada
-
-| Caminho | Mídia | Observação |
+| Caminho de entrada | Mídia | Observação |
 |---|---|---|
-| **FreeDVDBoot** | **DVD-R** | Explora o player de DVD embutido. **Não é CD** — o CD-R não serve para este caminho. Compatibilidade depende de modelo e firmware |
-| **Memory Card já com FMCB** | — | O caminho mais simples: chega pronto, é só plugar |
+| **FreeDVDBoot** | **DVD-R** | Explora o player de DVD embutido. **Não é CD-R.** Compatibilidade depende de modelo e firmware |
+| **Memory Card já com FMCB** | — | O mais simples: chega pronto, é só plugar |
 | **Modchip** | — | Solução de hardware |
 
-### Camada 2 — FreeMcBoot
-
-Instalado no Memory Card, faz o console executar homebrew automaticamente ao ligar. É o que a
-maioria das pessoas quer dizer com *"deixar o OPL instalado no cartão"* — só que o que fica
-instalado é o FMCB, e é ele que chama o OPL.
-
-O FMCB pode ser configurado para lançar um ELF **direto do pendrive**
-(`mass:/OPNPS2LD.ELF`). É a configuração recomendada para desenvolvimento.
-
-### Camada 3 — pendrive
-
-Tudo o mais mora aqui. O Memory Card não precisa guardar nada além do FMCB.
+Depois disso o Memory Card guarda apenas o FMCB, que pode lançar um ELF **direto do pendrive**
+(`mass:/RETROHUB.ELF`). É a configuração recomendada.
 
 ---
 
@@ -104,19 +111,54 @@ copiar tudo para o PC, formatar o pendrive e copiar de volta.
 
 ## 4. O ciclo de desenvolvimento
 
-Esta é a razão pela qual o console de teste é pré-requisito da Fase 0 — sem ele não há verificação
-possível, e com ele a iteração fica rápida:
+**O PS2 nunca é conectado ao PC.** O pendrive faz a ponte:
 
 ```
-build  →  RETROHUB.ELF  →  copiar para o pendrive  →  ligar o PS2  →  testar
+ [ PC Linux ]                          [ PS2 ]
+      │                                   │
+  ./tools/build.sh                        │
+      │  RETROHUB.ELF                     │
+      ▼                                   │
+  copia no pendrive ──── pendrive ───────►│  FMCB → RETROHUB.ELF
+                                          │  testa
+      ◄──────────────── pendrive ─────────┘
 ```
 
-**Nenhuma gravação de disco em nenhum momento.**
+Cerca de dois minutos por rodada. **Nenhuma gravação de disco em nenhum momento.**
 
-### Recomendações para o console de teste
+### Build em um comando
 
-1. **Manter o OPL original no pendrive** com outro nome (`OPNPS2LD.ELF` intacto, RetroHub como
-   `RETROHUB.ELF`). Permite comparar contra o baseline e voltar atrás na hora.
+```bash
+./tools/build.sh                                  # gera RETROHUB.ELF
+./tools/build.sh -o /run/media/$USER/RETROHUB     # gera e já copia
+./tools/build.sh debug                            # com log por rede (UDPTTY)
+```
+
+O script usa o container oficial `ghcr.io/ps2homebrew/ps2homebrew:main`, então não é preciso
+instalar PS2SDK. Requer apenas Docker.
+
+### Depuração por rede
+
+`make debug` (ou `./tools/build.sh debug`) ativa o **UDPTTY**: o console envia as mensagens de
+`LOG()` pela rede para o PC, em vez de escrevê-las no vazio. É a diferença entre depurar com
+informação e depurar com tela preta.
+
+Requer conexão de rede no console: os modelos slim têm ethernet integrado; os fat precisam do
+Network Adapter na baia de expansão.
+
+### Sequência recomendada na primeira vez
+
+Isole as variáveis — não deixe que a primeira build com código novo seja também o primeiro teste
+da toolchain:
+
+1. Compile o **OPL original, sem modificação**, e confirme que o ELF gerado boota no console.
+   Isso valida a toolchain sozinha.
+2. Só então aplique mudanças. Se algo quebrar a partir daí, é o código — não o ambiente.
+
+### Recomendações
+
+1. **Manter o `OPNPS2LD.ELF` original no pendrive.** O RetroHub sai como `RETROHUB.ELF`, nome
+   diferente de propósito: se a build nova travar, o OPL original continua ali como plano B.
 2. **Configurar o FMCB com as duas entradas** no menu, para alternar sem mexer em arquivo.
 3. **Um segundo pendrive** com a configuração conhecida-boa, para isolar se um problema é do
    build ou da mídia.
