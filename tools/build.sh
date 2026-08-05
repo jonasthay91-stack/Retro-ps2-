@@ -7,7 +7,8 @@
 #   ./tools/build.sh                    compila (padrão)
 #   ./tools/build.sh debug              compila com log por rede (UDPTTY)
 #   ./tools/build.sh clean              limpa
-#   ./tools/build.sh -o /run/media/eu/RETROHUB   compila e copia pro pendrive
+#   ./tools/build.sh -p                 compila e copia pro pendrive (acha sozinho)
+#   ./tools/build.sh -o /caminho        compila e copia para um caminho especifico
 #
 # O binário sai como RETROHUB.ELF — nome diferente do OPNPS2LD.ELF de propósito,
 # para que o OPL original continue no pendrive como plano B.
@@ -27,6 +28,7 @@ usage() {
 while [ $# -gt 0 ]; do
     case "$1" in
         -o|--output-dir) DEST="${2:-}"; shift 2 ;;
+        -p|--pendrive)   DEST="auto"; shift ;;
         -h|--help)       usage 0 ;;
         debug|clean|all|release|iopcore_debug|ingame_debug|eesio_debug)
                          TARGET="$1"; shift ;;
@@ -120,21 +122,43 @@ cp -f "$BUILT" "$OUT_NAME"
 SIZE=$(du -h "$OUT_NAME" | cut -f1)
 echo "==> $OUT_NAME  ($SIZE)"
 
+if [ "$DEST" = "auto" ]; then
+    # Procura mídia removível montada. Cobre os dois locais usuais das distros.
+    DEST=$(find "/run/media/$USER" "/media/$USER" /run/media /media \
+                -maxdepth 2 -mindepth 1 -type d 2>/dev/null \
+           | grep -v -E '^/(run/)?media/?$' | head -1)
+    if [ -z "$DEST" ]; then
+        cat >&2 <<EOF
+
+aviso: nenhum pendrive montado foi encontrado.
+       Plugue o dispositivo e abra-o no gerenciador de arquivos (isso monta),
+       depois rode de novo. Ou copie à mão:
+
+           cp $OUT_NAME /caminho/do/pendrive/
+
+EOF
+        DEST=""
+    else
+        echo "==> pendrive encontrado: $DEST"
+    fi
+fi
+
 if [ -n "$DEST" ]; then
     if [ ! -d "$DEST" ]; then
         echo "erro: destino '$DEST' não existe ou não está montado." >&2
+        echo "      dica: use -p para localizar o pendrive automaticamente." >&2
         exit 1
     fi
     cp -f "$OUT_NAME" "$DEST/$OUT_NAME"
     sync
     echo "==> copiado para $DEST/$OUT_NAME"
-    echo "    desmonte o pendrive antes de tirar:  udisksctl unmount -b /dev/sdX1"
+    echo "    desmonte antes de tirar:  udisksctl unmount -b \$(findmnt -no SOURCE '$DEST')"
 fi
 
 cat <<EOF
 
 Próximo passo:
-  1. copie $OUT_NAME para a raiz do pendrive
+  1. copie $OUT_NAME para a raiz do pendrive   (ou use: ./tools/build.sh -p)
   2. mantenha o OPNPS2LD.ELF original lá — é o seu plano B
   3. no PS2, lance $OUT_NAME pelo menu do FMCB ou pelo uLaunchELF
 EOF
