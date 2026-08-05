@@ -1,0 +1,93 @@
+diff --git a/src/menusys.c b/src/menusys.c
+index 972f332..0ec36d4 100644
+--- a/src/menusys.c
++++ b/src/menusys.c
+@@ -557,8 +557,33 @@ static void swap(submenu_list_t *a, submenu_list_t *b)
+         nb->prev = a;
+ }
+ 
++// RetroHub: referencia usada para ordenar a lista fora dela.
++// O 'idx' guarda a posicao original, usada como criterio de desempate.
++typedef struct
++{
++    submenu_list_t *node;
++    int idx;
++} submenu_ref_t;
++
++static int submenuSortCompare(const void *a, const void *b)
++{
++    const submenu_ref_t *ra = (const submenu_ref_t *)a;
++    const submenu_ref_t *rb = (const submenu_ref_t *)b;
++
++    int cmp = strcasecmp(submenuItemGetText(&ra->node->item),
++                         submenuItemGetText(&rb->node->item));
++
++    if (cmp != 0)
++        return cmp;
++
++    // qsort nao e estavel; o bubblesort era. Desempatar pela posicao original
++    // mantem a saida identica a da implementacao anterior em todos os casos.
++    return ra->idx - rb->idx;
++}
++
+ // Sorts the given submenu by comparing the on-screen titles
+-void submenuSort(submenu_list_t **submenu)
++// Fallback O(n^2), sem alocacao. So e usado se faltar memoria para o qsort.
++static void submenuSortBubble(submenu_list_t **submenu)
+ {
+     // a simple bubblesort
+     // *submenu = mergeSort(*submenu);
+@@ -599,6 +624,53 @@ void submenuSort(submenu_list_t **submenu)
+     *submenu = head;
+ }
+ 
++// Sorts the given submenu by comparing the on-screen titles
++//
++// O bubblesort acima e O(n^2) em comparacoes de string: uma biblioteca de 400
++// jogos custava ~160 mil strcasecmp, e a lista e reordenada a cada troca de
++// criterio. Copiar os ponteiros para um vetor e chamar qsort reduz isso a
++// O(n log n) e, de quebra, troca o religamento no de no por uma passada linear.
++//
++// O vetor custa 8 bytes por jogo (3,2 KB para 400) e vive so durante a
++// ordenacao. Se a alocacao falhar - plausivel em 32 MB - cai no metodo antigo,
++// que ordena no lugar. Ordenar devagar e melhor que nao ordenar.
++void submenuSort(submenu_list_t **submenu)
++{
++    submenu_list_t *node;
++    submenu_ref_t *refs;
++    int count, i;
++
++    if ((submenu == NULL) || (*submenu == NULL) || ((*submenu)->next == NULL))
++        return;
++
++    for (count = 0, node = *submenu; node != NULL; node = node->next)
++        count++;
++
++    refs = (submenu_ref_t *)malloc(count * sizeof(submenu_ref_t));
++    if (refs == NULL) {
++        submenuSortBubble(submenu);
++        return;
++    }
++
++    for (i = 0, node = *submenu; node != NULL; node = node->next, i++) {
++        refs[i].node = node;
++        refs[i].idx = i;
++    }
++
++    qsort(refs, count, sizeof(submenu_ref_t), submenuSortCompare);
++
++    // Religa a lista na nova ordem. Os nos em si nao sao tocados, entao os
++    // caches de textura (cache_id/cache_uid) continuam com seus itens.
++    for (i = 0; i < count; i++) {
++        refs[i].node->prev = (i > 0) ? refs[i - 1].node : NULL;
++        refs[i].node->next = (i + 1 < count) ? refs[i + 1].node : NULL;
++    }
++
++    *submenu = refs[0].node;
++
++    free(refs);
++}
++
+ static void menuNextH()
+ {
+     struct menu_list *next = selected_item->next;

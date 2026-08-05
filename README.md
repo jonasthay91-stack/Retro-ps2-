@@ -11,10 +11,31 @@ experiência de uso.
 
 ## Estado atual
 
-> **Fase de análise concluída. Nenhuma linha de código escrita — e nenhum arquivo do OPL alterado.**
+> **Fase 0 concluída em hardware real. Fase 1 em andamento.**
 
-Esta etapa produziu a documentação técnica completa da arquitetura do OPL, a análise de riscos e a
-proposta de arquitetura do RetroHub. A implementação começa pela Fase 0 do plano.
+A análise produziu a documentação técnica completa da arquitetura do OPL, a análise de riscos e a
+proposta de arquitetura do RetroHub — sem alterar um arquivo sequer.
+
+A **Fase 0** fechou com a cadeia inteira validada num PS2 slim: compilar no PC → copiar o
+`RETROHUB.ELF` para o pendrive → lançar pelo FMCB → listar o jogo → jogar. O binário era o OPL sem
+modificação, exatamente como o plano exigia: primeiro provar a toolchain, depois mexer no código.
+
+A **Fase 1** começou. São mudanças invisíveis na tela e decisivas embaixo dela — o que impede a
+interface de engasgar quando a biblioteca crescer. Ver [`DIVERGENCIAS.md`](DIVERGENCIAS.md).
+
+### Como o código é entregue
+
+O código do OPL **não é copiado para este repositório**. Ele fica num fork limpo, e as mudanças
+vivem em [`patches/`](patches/):
+
+```bash
+./tools/rh-apply.sh ~/Open-PS2-Loader     # aplica (idempotente)
+./tools/rh-apply.sh --status              # mostra o que está aplicado
+./tools/rh-apply.sh --revert              # volta ao OPL original
+./tools/run-tests.sh                      # testes de lógica, rodam no PC
+```
+
+Assim `git diff` no fork mostra exatamente a divergência, e há sempre um caminho de volta.
 
 ---
 
@@ -30,6 +51,7 @@ proposta de arquitetura do RetroHub. A implementação começa pela Fase 0 do pl
 | [**06 — Decisão: formato das capas**](docs/06-decisao-capas.md) | Capa única 192×276 em PNG paletizado 8 bits — a escolha mais leve e mais simples |
 | [**07 — Identidade visual**](docs/07-identidade-visual.md) | O que foi aproveitado e rejeitado das referências, e a assinatura visual: a capa vira o fundo |
 | [**08 — Console de teste**](docs/08-console-de-teste.md) | Como preparar um PS2 para receber builds — pré-requisito da Fase 0 |
+| [**Divergências**](DIVERGENCIAS.md) | Tudo o que o RetroHub muda no código do OPL, e por quê |
 
 ---
 
@@ -105,12 +127,14 @@ A lista completa está em [`02-riscos-e-compatibilidade.md`](docs/02-riscos-e-co
 
 ## Próximo passo
 
-**Fase 0** — build reproduzível e conjunto de 20 jogos de regressão testados em hardware real.
-Nenhuma mudança de interface antes disso.
+**Fase 1** — fundações invisíveis: ordenação O(n log n), tabela de despacho no parser de temas,
+instrumentação de heap e primitivas.
 
 ```bash
-./tools/build.sh          # compila via container oficial; gera RETROHUB.ELF
-./tools/check-engine-frozen.sh   # verifica se algum caminho do motor foi tocado
+./tools/rh-apply.sh ~/Open-PS2-Loader   # aplica os patches no fork
+./tools/run-tests.sh                     # verifica a lógica no PC
+./tools/build.sh -p                      # compila e copia pro pendrive
+./tools/check-engine-frozen.sh           # confere se algum caminho do motor foi tocado
 ```
 
 O ciclo de teste é: compilar no PC, copiar o ELF para o pendrive, ligar o console. O PS2 nunca é
