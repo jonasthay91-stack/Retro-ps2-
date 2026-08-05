@@ -259,3 +259,68 @@ Coisas que dependem do console específico e que este documento não pode decidi
 - **Se o adaptador HDMI força overscan**, o que decidiria entre margem de 16 px e 24 px
   (ver [`03-arquitetura`](03-arquitetura-retrohub-ps2.md#geometria-padrão-do-tema))
 - **Se o console suporta 480p** pela saída em uso, o que libera linhas de 1 px e texto menor
+
+---
+
+## 8. Voltar do jogo sem desligar o console
+
+O comportamento padrão — jogar e ter que desligar o console para escolher outro jogo — não é uma
+limitação do hardware. **O OPL já resolve isso**, e a peça se chama **IGR** (*In-Game Reset*),
+implementada em `ee_core/src/padhook.c`.
+
+### Os combos
+
+Definidos em `ee_core/include/padhook.h:89-92` como máscaras de bytes do controle, e detectados em
+`padhook.c:298-308`:
+
+| Combo | Efeito |
+|---|---|
+| `L1 + R1 + L2 + R2` + `SELECT + START` | Sai do jogo e executa o caminho de saída |
+| `L1 + R1 + L2 + R2` + `L3 + R3` | Desliga o console |
+
+São seis botões simultâneos, incluindo os quatro gatilhos. Acionamento acidental durante uma
+partida é improvável.
+
+### Por que ele sai do OPL inteiro
+
+O destino da saída é a configuração `exit_path`. Quando está vazia, `system.c:816-817` preenche com
+`"Browser"` — o navegador do sistema do PS2. Dali só ligando e desligando para voltar ao launcher.
+
+**A correção é configuração, não código:**
+
+```
+START → Configurações → campo de caminho de saída → mass:/RETROHUB.ELF → Salvar
+```
+
+Vale para qualquer build; não exige recompilar.
+
+### A dependência que não é óbvia
+
+Quando o caminho de saída começa com `mass:`, o núcleo carrega os drivers de USB **a partir do
+Memory Card** antes de executar o ELF (`padhook.c:87-96`):
+
+```c
+if (config->ExitPath[1] == 'a') { // ie mass:
+    ret = LoadModule("mc0:SYS-CONF/USBD.IRX", 0, NULL);
+    if (ret >= 0)
+        LoadModule("mc0:SYS-CONF/USBHDFSD.IRX", 0, NULL);
+    ...
+```
+
+Faz sentido: na hora de sair do jogo o OPL já não está na memória, então algo precisa reensinar o
+console a enxergar o pendrive. A consequência prática é que **`mc0:SYS-CONF/USBD.IRX` e
+`mc0:SYS-CONF/USBHDFSD.IRX` precisam existir no cartão.** Instalações de FMCB costumam trazer o
+primeiro; o segundo é menos garantido.
+
+Confira pelo uLaunchELF em `mc0:/SYS-CONF/`. Se faltar, copiar do pendrive resolve — e é a primeira
+vez que se toca no cartão, ainda assim apenas acrescentando arquivo, sem alterar o FMCB.
+
+**Alternativa sem dependência:** `mc0:/APPS/OPNPS2LD.ELF` como caminho de saída não carrega driver
+nenhum. Volta-se ao OPL do cartão em vez do RetroHub — menos elegante, à prova de falha.
+
+### Onde a configuração é guardada
+
+Em `conf_opl.cfg` (`src/config.c:23`), sob o prefixo `gBaseMCDir`, que por padrão é `mc?:OPL`
+(`opl.c:1700`) — ou seja, **no Memory Card**, não no pendrive. Editar o arquivo pelo PC só é possível
+depois de mover a configuração para o dispositivo (`configSetMove`, `opl.c:1028`). Pela interface do
+console é o caminho direto.
