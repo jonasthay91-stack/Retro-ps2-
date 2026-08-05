@@ -9,6 +9,7 @@
 #   ./tools/build.sh clean              limpa
 #   ./tools/build.sh -p                 compila e copia pro pendrive (acha sozinho)
 #   ./tools/build.sh -o /caminho        compila e copia para um caminho especifico
+#   ./tools/build.sh -C ~/Open-PS2-Loader   escolhe o fork explicitamente
 #
 # O binário sai como RETROHUB.ELF — nome diferente do OPNPS2LD.ELF de propósito,
 # para que o OPL original continue no pendrive como plano B.
@@ -20,8 +21,10 @@ OUT_NAME="RETROHUB.ELF"
 TARGET="all"
 DEST=""
 
+FORK=""
+
 usage() {
-    sed -n '2,14p' "$0" | sed 's/^# \{0,1\}//'
+    sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'
     exit "${1:-0}"
 }
 
@@ -29,6 +32,7 @@ while [ $# -gt 0 ]; do
     case "$1" in
         -o|--output-dir) DEST="${2:-}"; shift 2 ;;
         -p|--pendrive)   DEST="auto"; shift ;;
+        -C|--fork)       FORK="${2:-}"; shift 2 ;;
         -h|--help)       usage 0 ;;
         debug|clean|all|release|iopcore_debug|ingame_debug|eesio_debug)
                          TARGET="$1"; shift ;;
@@ -36,22 +40,36 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-cd "$(dirname "$0")/.."
-ROOT="$PWD"
+# O script tanto pode viver dentro do fork do OPL quanto no repositório do
+# RetroHub, chamado de fora. Procura a raiz do fork em vez de assumir.
+is_opl() { [ -f "$1/Makefile" ] && [ -f "$1/src/menusys.c" ] && [ -d "$1/ee_core" ]; }
 
-if [ ! -f Makefile ]; then
+SELF_PARENT="$(cd "$(dirname "$0")/.." && pwd)"
+if [ -z "$FORK" ]; then
+    for cand in "$PWD" "$SELF_PARENT" "${RETROHUB_OPL:-}" \
+                "$HOME/Open-PS2-Loader" "$HOME/OPL" "$SELF_PARENT/../Open-PS2-Loader"; do
+        [ -n "$cand" ] && is_opl "$cand" && { FORK="$cand"; break; }
+    done
+fi
+
+if [ -z "$FORK" ] || ! is_opl "$FORK"; then
     cat >&2 <<'EOF'
-erro: Makefile não encontrado.
+erro: não encontrei o fork do Open PS2 Loader.
 
-Este script roda na raiz do fork do Open PS2 Loader. Se você ainda não clonou:
+Este script compila o fork do OPL. Aponte para ele:
 
-    git clone https://github.com/ps2homebrew/Open-PS2-Loader.git
-    cd Open-PS2-Loader
+    ./tools/build.sh -C ~/Open-PS2-Loader
 
-e copie tools/build.sh para lá, ou aponte este repositório para o fork.
+ou defina a variável de ambiente RETROHUB_OPL. Se ainda não clonou:
+
+    git clone https://github.com/ps2homebrew/Open-PS2-Loader.git ~/Open-PS2-Loader
 EOF
     exit 1
 fi
+
+cd "$FORK"
+ROOT="$PWD"
+echo "==> fork: $ROOT"
 
 if ! command -v docker >/dev/null 2>&1; then
     echo "erro: docker não encontrado. Instale o docker e adicione seu usuário ao grupo 'docker'." >&2

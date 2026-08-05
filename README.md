@@ -130,12 +130,25 @@ A lista completa está em [`02-riscos-e-compatibilidade.md`](docs/02-riscos-e-co
 **Fase 1** — fundações invisíveis: ordenação O(n log n), tabela de despacho no parser de temas,
 instrumentação de heap e primitivas.
 
+Na primeira vez, os dois repositórios precisam existir lado a lado:
+
 ```bash
-./tools/rh-apply.sh ~/Open-PS2-Loader   # aplica os patches no fork
+git clone https://github.com/ps2homebrew/Open-PS2-Loader.git ~/Open-PS2-Loader
+git clone https://github.com/jonasthay91-stack/Retro-ps2-.git ~/Retro-ps2-
+```
+
+Daí em diante:
+
+```bash
+cd ~/Retro-ps2-
+git pull
 ./tools/run-tests.sh                     # verifica a lógica no PC
+./tools/rh-apply.sh ~/Open-PS2-Loader    # aplica os patches no fork
 ./tools/build.sh -p                      # compila e copia pro pendrive
 ./tools/check-engine-frozen.sh           # confere se algum caminho do motor foi tocado
 ```
+
+Os scripts acham o fork sozinhos; `-C ~/Open-PS2-Loader` força um caminho específico.
 
 O ciclo de teste é: compilar no PC, copiar o ELF para o pendrive, ligar o console. O PS2 nunca é
 conectado ao PC — ver [`08-console-de-teste.md`](docs/08-console-de-teste.md).
