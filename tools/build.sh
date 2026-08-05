@@ -219,13 +219,25 @@ if [ -n "$DEST" ]; then
     cp -f "$OUT_NAME" "$DEST/$OUT_NAME"
     sync
     echo "==> copiado para $DEST/$OUT_NAME"
-    echo "    desmonte antes de tirar:  udisksctl unmount -b \$(findmnt -no SOURCE '$DEST')"
 fi
 
-cat <<EOF
+# O que falta fazer depende de o ELF ja ter sido copiado ou nao. Repetir o
+# passo que o script acabou de executar so confunde quem esta lendo.
+if [ -n "$DEST" ]; then
+    cat <<EOF
+
+Próximo passo:
+  1. desmonte antes de tirar:
+       udisksctl unmount -b \$(findmnt -no SOURCE '$DEST')
+  2. no PS2: FMCB → uLaunchELF → mass: → $OUT_NAME
+  3. se a build travar, o OPNPS2LD.ELF do lado continua sendo o plano B
+EOF
+else
+    cat <<EOF
 
 Próximo passo:
   1. copie $OUT_NAME para a raiz do pendrive   (ou use: ./tools/build.sh -p)
   2. mantenha o OPNPS2LD.ELF original lá — é o seu plano B
-  3. no PS2, lance $OUT_NAME pelo menu do FMCB ou pelo uLaunchELF
+  3. no PS2: FMCB → uLaunchELF → mass: → $OUT_NAME
 EOF
+fi
