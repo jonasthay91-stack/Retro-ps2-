@@ -76,14 +76,27 @@ if ! command -v docker >/dev/null 2>&1; then
     exit 1
 fi
 
-if ! docker info >/dev/null 2>&1; then
-    cat >&2 <<'EOF'
-erro: o daemon do docker não respondeu.
+# "não consegui falar com o docker" tem duas causas bem diferentes, e a
+# solução de uma não resolve a outra. Vale ler a mensagem em vez de adivinhar.
+if ! DOCKER_ERR=$(docker info 2>&1 >/dev/null); then
+    if printf '%s' "$DOCKER_ERR" | grep -qi 'permission denied'; then
+        cat >&2 <<'EOF'
+erro: o daemon do docker está rodando, mas seu usuário não tem permissão
+      para falar com ele — falta estar no grupo 'docker'.
 
-    sudo systemctl start docker
-    sudo usermod -aG docker "$USER"    # depois faça logout/login
+    sudo usermod -aG docker "$USER"
+    newgrp docker                      # vale já nesta janela, sem logout
 
 EOF
+    else
+        cat >&2 <<'EOF'
+erro: o daemon do docker não respondeu.
+
+    sudo systemctl enable --now docker  # sobe agora e nos próximos boots
+
+EOF
+        printf '%s\n\n' "$DOCKER_ERR" | sed 's/^/  /' >&2
+    fi
     exit 1
 fi
 
