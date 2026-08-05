@@ -74,12 +74,34 @@ if [ -d .git ] && [ -n "$(git rev-parse --is-shallow-repository 2>/dev/null | gr
 fi
 
 echo "==> alvo: make $TARGET"
+# NB: 'bash -c', nunca 'bash -lc'. Um shell de login recarrega o PATH a partir
+# de /etc/profile e descarta o PATH que o Docker definiu — que é justamente
+# onde vive o cross-compiler. O PATH é reforçado abaixo por segurança.
 docker run --rm \
     --user "$(id -u):$(id -g)" \
     -v "$ROOT":/src -w /src \
     -e HOME=/tmp \
+    -e MAKE_TARGET="$TARGET" \
     "$IMAGE" \
-    bash -lc "git config --global --add safe.directory /src 2>/dev/null || true; make $TARGET"
+    bash -c '
+        P="${PS2DEV:-/usr/local/ps2dev}"
+        export PS2DEV="$P"
+        export PS2SDK="${PS2SDK:-$P/ps2sdk}"
+        export GSKIT="${GSKIT:-$P/gsKit}"
+        export PATH="$PATH:$P/bin:$P/ee/bin:$P/iop/bin:$P/dvp/bin:$PS2SDK/bin"
+
+        if ! command -v mips64r5900el-ps2-elf-gcc >/dev/null 2>&1; then
+            echo "erro: cross-compiler nao encontrado dentro do container." >&2
+            echo "  PS2DEV=$P" >&2
+            echo "  PATH=$PATH" >&2
+            echo "  conteudo de $P:" >&2
+            ls -1 "$P" 2>&1 | sed "s/^/    /" >&2
+            exit 127
+        fi
+
+        git config --global --add safe.directory /src 2>/dev/null || true
+        exec make "$MAKE_TARGET"
+    '
 
 [ "$TARGET" = "clean" ] && { echo "==> limpo"; exit 0; }
 
