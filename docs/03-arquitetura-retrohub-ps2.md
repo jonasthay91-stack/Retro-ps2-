@@ -259,36 +259,40 @@ Telas preservadas: `MAIN` (lista clássica, disponível como modo de visualizaç
 
 ### 3.2 Tela inicial (Hub)
 
+> **Redesenhada em [`07-identidade-visual.md`](07-identidade-visual.md#5-tela-inicial-redesenhada).**
+> A grade de 7 tiles chapados foi substituída por hero + lista vertical.
+
 ```
-┌────────────────────────────────────────────────────────────────┐
-│                                                                │
-│   RetroHub PS2                                    ⌚ 14:32     │
-│                                                                │
-│   ┌────────┐ ┌────────┐ ┌────────┐ ┌────────┐                  │
-│   │        │ │        │ │        │ │        │                  │
-│   │  PS2   │ │  PS1   │ │ EMULA- │ │ HOME-  │                  │
-│   │        │ │        │ │ DORES  │ │ BREW   │                  │
-│   │  428   │ │   61   │ │    7   │ │   23   │                  │
-│   └────────┘ └────────┘ └────────┘ └────────┘                  │
-│                                                                │
-│   ┌────────┐ ┌────────┐ ┌────────┐                             │
-│   │ FAVO-  │ │ RECEN- │ │ CONFI- │                             │
-│   │ RITOS  │ │  TES   │ │ GURAÇÕ.│                             │
-│   │   19   │ │    8   │ │        │                             │
-│   └────────┘ └────────┘ └────────┘                             │
-│                                                                │
-│   USB ●   HDD ●   MX4SIO ○   SMB ○           ✕ Abrir  ▲ Opções │
-└────────────────────────────────────────────────────────────────┘
+   16 ┌───────────────────────────────────────────────────────┐
+      │  RetroHub                    428 jogos       14:32    │ 36
+   52 ├──────────────────────────────────┬────────────────────┤
+      │                                  │ > JOGOS PS2    428 │
+      │      +----------------+          │   JOGOS PS1     61 │
+      │      |                |          │   EMULADORES     7 │
+      │      |  HERO 267x384  |          │   HOMEBREW      23 │
+      │      |                |          │   FAVORITOS     19 │
+      │      |                |          │   RECENTES       8 │
+      │      |       [PS2]    |          │   CONFIGURACOES    │
+      │      +----------------+          │                    │
+  436 ├──────────────────────────────────┴────────────────────┤
+      │  X Abrir      /\ Opcoes          USB o  HDD o  SMB -  │ 28
+  464 └───────────────────────────────────────────────────────┘
+        |<----------- 372 ------------>|<------- 220 ------->|
 ```
 
-**Custo de renderização:** 7 tiles + 7 rótulos + 7 contadores + barra de status ≈ **30 primitivas**.
-Bem dentro do orçamento de 80 (R-03).
+Sete itens de 48 px + gaps de 8 px preenchem exatamente os 384 px de conteúdo. O **hero é a capa
+do último jogo jogado da categoria em foco** — dá continuidade emocional sem exigir arte adicional.
+
+O fundo é a mesma capa esticada a 640×480 e escurecida: 1 primitiva, 0 bytes
+(ver [`07-identidade-visual.md`](07-identidade-visual.md#4-a-assinatura-visual-a-capa-vira-o-fundo)).
+
+**Custo de renderização:** ~22 primitivas, contra o teto de 80.
 
 **Custo de inicialização:** os contadores vêm do cabeçalho do índice. **A tela inicial não precisa
-ler nenhum jogo.** Aparece assim que o índice é lido — sub-segundo. Satisfaz R-10.
+ler nenhum jogo** — aparece assim que o índice é lido. Satisfaz R-10.
 
-Indicadores de dispositivo (`USB ● HDD ●`) vêm de `menuItem.visible` de cada `item_list_t` — dado
-já mantido pelo OPL.
+Categoria vazia fica esmaecida mas **não desaparece**: a lista tem sempre as mesmas 7 linhas, na
+mesma posição. Indicadores de dispositivo vêm de `menuItem.visible` de cada `item_list_t`.
 
 ### 3.3 Tela de jogos (grade de capas) — **visualização principal**
 
@@ -443,8 +447,8 @@ Configurável, para respeitar tanto o público quanto o hardware:
 
 | Modo | Capas visíveis | Custo | Quando |
 |---|---|---|---|
-| **Grade** (padrão) | 6–8 reduzidas + 1 em foco | ~28–34 prims | Uso normal |
-| **Lista + capa** | 1 capa | ~25 prims | Bibliotecas gigantes, consoles lentos |
+| **Grade** (padrão) | 6–8 reduzidas + 1 em foco | ~28–34 prims | Navegar bibliotecas grandes |
+| **Cinema** | 1 capa a 267×384 | ~14 prims | Impacto visual; dispositivos lentos |
 | **Clássico OPL** | conforme o tema | — | Compatibilidade / preferência |
 
 ---
@@ -460,7 +464,8 @@ Aditivas, opt-in, sem quebrar tema legado (RI-5).
 | `CoverGrid` | Grade de capas | `cols`, `rows`, `cover_w`, `cover_h`, `gap_x`, `gap_y`, `focus_scale`, `pattern`, `count` |
 | `GameCard` | Painel de detalhes | `fields` (lista ordenada), `line_height`, `label_color` |
 | `TabBar` | Barra de categorias | `orientation`, `item_w`, `item_h`, `icon_size` |
-| `HubTile` | Tile da tela inicial | `index`, `icon`, `label_id`, `show_count` |
+| `HubList` | Lista vertical da tela inicial | `item_h`, `gap`, `show_count`, `badge_h` |
+| `CoverBackdrop` | A capa em foco como fundo desfocado | `darken`, `fade_frames` |
 | `SearchBox` | Campo de busca | `placeholder_id`, `max_len` |
 | `StatusBar` | Barra de dispositivos/relógio | `show_devices`, `show_clock` |
 | `AttributeBadge` | Selo (região, jogadores, compat.) | `attribute`, `style` |
@@ -481,7 +486,8 @@ static const struct {
     { "CoverGrid",      initCoverGrid      },
     { "GameCard",       initGameCard       },
     { "TabBar",         initTabBar         },
-    { "HubTile",        initHubTile        },
+    { "HubList",        initHubList        },
+    { "CoverBackdrop",  initCoverBackdrop  },
     { "SearchBox",      initSearchBox      },
     { "StatusBar",      initStatusBar      },
     { "AttributeBadge", initAttributeBadge },

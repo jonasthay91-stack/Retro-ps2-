@@ -138,7 +138,9 @@ cartão preparado pelo RetroHub.
    `texcache`. Capa única de 192×276 em T8, reduzida por hardware na grade
    (ver [`06-decisao-capas.md`](06-decisao-capas.md)).
 3. Implementar `GameCard` (`rh_card.c`) — painel de campos configuráveis.
-4. Implementar `TabBar`, `HubTile`, `SearchBox`, `StatusBar`, `AttributeBadge`.
+4. Implementar `TabBar`, `HubList`, `SearchBox`, `StatusBar`, `AttributeBadge`.
+5. Implementar `CoverBackdrop` — a capa em foco esticada a 640×480 e escurecida, com fade de
+   ~8 frames na troca (ver [`07-identidade-visual.md`](07-identidade-visual.md)).
 5. Novas seções de tela no parser: `hubN`, `gridN`, `searchN`.
 6. Layout embutido de fallback para temas sem essas seções.
 7. Extensão do `texcache`: cache de **24 entradas** e pré-carregamento direcional. **Sem alterar a
@@ -166,7 +168,8 @@ cartão preparado pelo RetroHub.
 
 ### Tarefas
 1. `rh_hub.c`: `GUI_SCREEN_HUB` com render e input.
-2. Sete tiles: PS2, PS1, Emuladores, Homebrew, Favoritos, Recentes, Configurações.
+2. Layout hero + lista vertical de 7 itens: PS2, PS1, Emuladores, Homebrew, Favoritos, Recentes,
+   Configurações. O hero é a capa do último jogo jogado da categoria em foco.
 3. Contadores lidos do cabeçalho do índice (custo zero de I/O).
 4. Barra de status com dispositivos detectados e relógio.
 5. Navegação: ←/→/↑/↓, ✕ entra, START abre configurações.
@@ -201,7 +204,7 @@ cartão preparado pelo RetroHub.
 7. □ abre `GUI_SCREEN_INFO` (tela existente).
 8. Marcar/desmarcar favorito (botão a definir — provavelmente L3 ou △ longo).
 9. Atualização de `lastPlayed`/`playCount` no lançamento, gravando em `RH/recent.cfg`.
-10. Modos de visualização: grade / lista+capa / clássico.
+10. Modos de visualização: grade / **Cinema** (uma capa a 267×384) / clássico.
 11. **Se a medição da Fase 0 apontar a abertura de arquivo como gargalo:** implementar
     `RH/covers.pak` com fallback automático para PNGs soltos em `ART/`
     (ver [`06-decisao-capas.md`](06-decisao-capas.md#plano-b-condicional-rhcoverspak)).
@@ -257,14 +260,15 @@ de funcionar.
 
 ### Tarefas
 1. Tema padrão "Midnight" completo — layout, cores, tipografia.
-2. Conjunto de ícones próprio (traço 2 px, 24/48 px, PNG paletizado).
+2. Conjunto de ícones próprio (traço 2 px, 24/48 px, PNG paletizado) e sistema de badges
+   padronizado (altura fixa, tratamento monocromático — ver [`07-identidade-visual.md`](07-identidade-visual.md#7-sistema-de-badges)).
 3. Temas adicionais: "Aurora", "Retro CRT", "Slate".
 4. Novos sons de navegação com identidade própria (substituir os 8 `.adp`; adicionar foco, erro,
    favoritar).
 5. Tela de configurações visuais: modo de visualização, tamanho de capa, densidade da grade,
    fundo personalizado, tema, cores.
 6. Configurações de áudio: BGM opcional, volumes (já existem — apenas expor bem).
-7. Tela inicial personalizável: ordem e visibilidade dos tiles.
+7. Tela inicial personalizável: ordem e visibilidade dos itens da lista.
 8. Transições e easing consistentes (12-16 frames).
 9. Revisão de todos os textos e tradução para os 31 idiomas do OPL.
 10. Documentação de usuário: como preparar o pendrive, como funcionam as capas, formato dos

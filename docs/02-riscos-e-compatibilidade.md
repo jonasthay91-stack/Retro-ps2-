@@ -54,7 +54,7 @@ lista de jogos, atlas de fontes, módulos IRX embutidos (~2 MB) e o próprio có
 |---|---|
 | Cache de capas (24 × 192×276 T8) | 1,27 MB |
 | Cache de ícones (20 × 64×64 T8) | 0,1 MB |
-| Fundo estático 640×480 T8 | 0,3 MB |
+| Fundo 640×480 T8 (opcional; 0 com `CoverBackdrop`) | 0,3 MB |
 | Atlas de fontes (4 × 256×256 CT32) | 1,0 MB |
 | Índice de biblioteca (2.000 jogos) | 1,0 MB |
 | Nós de menu / submenu (2.000) | 0,3 MB |
@@ -77,7 +77,8 @@ derrubar para 30 fps.
 **Mitigação.**
 1. **Orçamento de draw calls**: máximo **80 primitivas/frame**. Cada `rmDrawPixmap` é uma
    primitiva; `rmDrawOverlayPixmap` são duas.
-2. Desativar o plasma Perlin sempre que houver `Background` estático (é CPU pura, `gui.c:1269`).
+2. Desativar o plasma Perlin sempre que houver `Background` ou `CoverBackdrop` (é CPU pura,
+   `gui.c:1269`). O backdrop custa 1 primitiva e 0 bytes — reusa a capa já em cache.
 3. Ordenação incremental em vez de bubble sort (ver R-04).
 4. Busca com debounce: só refiltra depois de 250 ms sem digitação.
 5. Contador de FPS visível em debug (já existe, `gui.c:56-58`).

@@ -137,7 +137,7 @@ Fica registrado como otimização futura, caso surja um caso de uso real com 3.0
 | Cache de capas | 1,5 MB (16 × 94 KB) | **1,27 MB** (24 × 53 KB) |
 | Cache de miniaturas | 0,3 MB | **0** (eliminado) |
 | Cache de ícones (20 × 64×64 T8) | 0,1 MB | 0,1 MB |
-| Fundo estático 640×480 | 0,9 MB | 0,9 MB (T8: **0,3 MB**) |
+| Fundo 640×480 (opcional) | 0,9 MB | 0,3 MB — **0 no tema padrão**, que usa `CoverBackdrop` |
 | Atlas de fontes | 1,0 MB | 1,0 MB |
 | Índice de biblioteca (2.000 jogos) | 1,0 MB | 1,0 MB |
 | Nós de menu/submenu | 0,3 MB | 0,3 MB |
@@ -181,9 +181,11 @@ O RetroHub Manager também garante isso na origem.
 
 ### Decisões complementares para manter o sistema liso
 
-1. **Fundo estático em vez do plasma Perlin.** O plasma (`gui.c:1269`) é ruído 3D recalculado em
-   CPU **todo frame**. O tema padrão do RetroHub define um `Background` estático, o que desliga
-   esse caminho por completo. Em T8 o fundo custa 0,3 MB em vez de 0,9 MB.
+1. **`CoverBackdrop` em vez do plasma Perlin.** O plasma (`gui.c:1269`) é ruído 3D recalculado em
+   CPU **todo frame**. O tema padrão do RetroHub usa a própria capa em foco como fundo — esticada
+   a 640×480 e escurecida, o que aproveita o upscale bilinear do GS como desfoque. Custa
+   **1 primitiva e 0 bytes**, porque reusa a textura já em cache, e desliga o plasma por completo
+   (ver [`07-identidade-visual.md`](07-identidade-visual.md#4-a-assinatura-visual-a-capa-vira-o-fundo)).
 
 2. **Pré-carregamento direcional.** Ao mover o foco, enfileirar a capa seguinte na direção do
    movimento. Uma requisição por movimento, não uma varredura.
