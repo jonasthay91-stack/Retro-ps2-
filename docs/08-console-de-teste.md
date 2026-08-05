@@ -27,7 +27,67 @@ um disco a cada vez.
 
 ---
 
-## 2. O que move para o pendrive: tudo o mais
+## 2. Não é preciso alterar o Memory Card
+
+**Se o console já boota no FMCB, o cartão pode ficar exatamente como está.**
+
+### O leitor óptico não tem relação com gravar no cartão
+
+Essa é a confusão mais comum. O leitor serviria apenas para **instalar** o FMCB pela primeira vez.
+Uma vez instalado, ele boota sozinho, e qualquer homebrew lançado a partir dali — inclusive do
+pendrive — lê e escreve no Memory Card normalmente. **Um leitor quebrado é irrelevante daí em
+diante.**
+
+### O caminho que funciona sem tocar em nada
+
+```
+1. Copiar RETROHUB.ELF para a raiz do pendrive          (no PC)
+2. Ligar o console  →  menu do FMCB
+3. Abrir o uLaunchELF  (presente na maioria das instalações de FMCB)
+4. Navegar até mass:  →  selecionar RETROHUB.ELF  →  executar
+```
+
+Zero alteração no cartão. O FMCB e o OPL originais continuam intactos, o que garante que sempre
+há um sistema funcionando para voltar.
+
+Este já é o ciclo de desenvolvimento completo — um passo a mais que o ideal, mas suficiente.
+
+### Lançamento direto, sem passar pelo uLaunchELF (opcional)
+
+Para pular uma etapa, configura-se o FMCB — e **isso também se faz pelo pendrive**: basta colocar
+o FMCB Configurator nele, executá-lo pelo uLaunchELF, e ele grava a configuração no cartão. Nenhum
+disco envolvido.
+
+**Não é obrigatório, e convém deixar para depois.** Enquanto o cartão permanece intocado, existe
+garantia de retorno a um sistema conhecido.
+
+Quando for feito, vale usar **caminhos alternativos** no mesmo item de menu, tentados em ordem:
+
+| Ordem | Caminho | Papel |
+|---|---|---|
+| Path1 | `mass:/RETROHUB.ELF` | a build em teste |
+| Path2 | `mass:/OPNPS2LD.ELF` | OPL estável no pendrive |
+| Path3 | `mc0:/APPS/OPNPS2LD.ELF` | OPL no cartão, último recurso |
+
+Se o pendrive não estiver presente, ou se a build em teste travar, cai sozinho no próximo.
+
+**Se o ELF não for encontrado:** o FMCB pode estar lançando antes de o pendrive ser enumerado.
+Há um ajuste de espera por USB nas configurações.
+
+### O que pode ser feito pela rede
+
+| Recurso | Serve? |
+|---|---|
+| **UDPTTY** (`./tools/build.sh debug`) | **Sim.** O OPL envia as mensagens de `LOG()` pela ethernet para o PC. É a diferença entre depurar com informação e depurar com tela preta |
+| **ps2link** (enviar o ELF pela rede) | **Provavelmente não.** O OPL executa `sysReset()` na inicialização, que reinicia o IOP e derruba a conexão do ps2link |
+| Jogos por SMB | Sim, mas é outro assunto |
+
+Ou seja: **o pendrive transporta o ELF; a rede mostra o que acontece dentro dele.** Vale testar o
+ps2link, mas não convém contar com ele.
+
+---
+
+## 3. O que move para o pendrive: tudo o mais
 
 O Memory Card guarda **apenas o FMCB**, poucos KB. O sistema inteiro vive no pendrive ou HD:
 
@@ -77,7 +137,7 @@ apenas guarda um arquivo. O que dá o poder de boot é o FMCB instalado, que tem
 
 ---
 
-## 3. Formato do pendrive
+## 4. Formato do pendrive
 
 Confirmado no README do OPL (seção *USB/MX4SIO/iLink*):
 
@@ -115,7 +175,7 @@ copiar tudo para o PC, formatar o pendrive e copiar de volta.
 
 ---
 
-## 4. O ciclo de desenvolvimento
+## 5. O ciclo de desenvolvimento
 
 **O PS2 nunca é conectado ao PC.** O pendrive faz a ponte:
 
@@ -173,7 +233,7 @@ da toolchain:
 
 ---
 
-## 5. Velocidade por dispositivo
+## 6. Velocidade por dispositivo
 
 Relevante para a medição de carregamento de capa da Fase 0 e para a experiência de uso:
 
@@ -191,7 +251,7 @@ e é o que decide se o `RH/covers.pak` entra ou não
 
 ---
 
-## 6. O que ainda precisa ser confirmado
+## 7. O que ainda precisa ser confirmado
 
 Coisas que dependem do console específico e que este documento não pode decidir:
 
