@@ -11,7 +11,14 @@ experiência de uso.
 
 ## Estado atual
 
-> **Fase 0 concluída em hardware real. Fase 1 em andamento.**
+> **A estante roda em hardware real.** Build no PC → pendrive → PS2 slim → interface própria na tela
+> → jogo abrindo. A cadeia inteira está fechada.
+
+O caminho de lançamento não foi o previsto, e a descoberta vale registrar: o pendrive estava em
+exFAT, que **só o OPL** lê — uLaunchELF e FMCB usam um driver de USB de vinte anos atrás, FAT16/32
+apenas. O pendrive guardava jogos mas nada conseguia dar boot nele, sem nenhum indício do motivo.
+A saída foi usar o próprio OPL como carregador, pela seção *Applications*
+(ver [`08-console-de-teste.md`](docs/08-console-de-teste.md#9-lançar-a-build-sem-depender-do-ulaunchelf)).
 
 A análise produziu a documentação técnica completa da arquitetura do OPL, a análise de riscos e a
 proposta de arquitetura do RetroHub — sem alterar um arquivo sequer.
