@@ -101,8 +101,12 @@ static int animReady = 0;       // primeiro quadro assenta sem animar
 
 void rhShelfInit(void)
 {
+    // Sufixo "COV", sem underscore: quem monta o caminho ja poe o separador —
+    // bdmsupport.c:584 faz "%s%s/%s_%s" e texDiscoverLoad acrescenta ".png",
+    // resultando em ART/<startup>_COV.png. Passar "_COV" aqui geraria
+    // "__COV" e a capa nunca seria encontrada.
     if (!coverCache)
-        coverCache = cacheInitCache(-1, "ART", 1, "_COV", 1);
+        coverCache = cacheInitCache(-1, "ART", 1, "COV", 1);
 
     // Se algum slot nao estiver livre, fntLoadFile devolve FNT_ERROR e ficamos
     // com a fonte padrao. Feio, mas funcional — nunca sem texto.
