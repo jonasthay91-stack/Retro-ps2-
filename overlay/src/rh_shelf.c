@@ -116,7 +116,7 @@ void rhShelfInit(void)
             fntBig = id;
     }
     if (fntSmall == FNT_DEFAULT) {
-        int id = fntLoadFile(NULL, 13);
+        int id = fntLoadFile(NULL, 15);
         if (id != FNT_ERROR)
             fntSmall = id;
     }
@@ -221,6 +221,39 @@ static void rhSpineColor(const char *key, int *r, int *g, int *b)
 
 // ----------------------------------------------------------------- desenho --
 
+// Encurta o texto ate caber, terminando em reticencias.
+//
+// Nomes de ISO sao longos e cheios de sufixo — "Black (BR) (DUB IA) (T1.0)..."
+// — e sem isso o titulo simplesmente sai pela borda no meio de uma palavra.
+//
+// fntCalcDimensions devolve largura JA ESCALADA para a tela; por isso o limite
+// tambem precisa passar por rmScaleX, senao a conta compara grandezas
+// diferentes (e o mesmo cuidado que fntFitString toma).
+static void rhFitText(int font, const char *src, int maxW, char *dst, int cap)
+{
+    int limit = rmScaleX(maxW);
+    int len;
+
+    snprintf(dst, cap, "%s", src ? src : "");
+
+    if (fntCalcDimensions(font, dst) <= limit)
+        return;
+
+    len = (int)strlen(dst);
+    while (len > 1) {
+        len--;
+        if (len + 4 > cap)
+            continue;
+        dst[len] = '.';
+        dst[len + 1] = '.';
+        dst[len + 2] = '.';
+        dst[len + 3] = '\0';
+        if (fntCalcDimensions(font, dst) <= limit)
+            return;
+        dst[len] = '\0'; // tira as reticencias antes de cortar mais
+    }
+}
+
 // Faixa escura em degrade. O GS nao tem gradiente, entao sao N retangulos
 // empilhados com o alfa variando. Acima de ~10 faixas a banda some numa TV
 // entrelacada, e cada uma custa uma primitiva — 14 e o ponto de equilibrio.
@@ -280,12 +313,16 @@ static void rhHeader(int total, int index)
 // A capa em foco, com sombra e moldura. A sombra sao dois retangulos deslocados
 // com alfa baixo — nao ha desfoque, mas a 480 linhas entrelacadas o olho aceita
 // como sombra, e custa duas primitivas em vez de uma textura.
-static void rhCover(GSTEXTURE *cover, const char *title, float fade)
+static void rhCover(GSTEXTURE *cover, float fade)
 {
     int inset = (int)(6.0f * (1.0f - fade)); // entra crescendo, discreto
+    // rmDrawRect nao aplica correcao de proporcao; rmDrawPixmap com
+    // SCALING_RATIO aplica. Sem passar a moldura por rmWideScale, em 16:9 ela
+    // ficaria mais larga que a capa que deveria emoldurar.
+    int w = rmWideScale(COVER_W);
 
-    rmDrawRect(COVER_X + 5, COVER_Y + 7, COVER_W, COVER_H, C(0, 0, 0, 0x38));
-    rmDrawRect(COVER_X + 2, COVER_Y + 4, COVER_W, COVER_H, C(0, 0, 0, 0x30));
+    rmDrawRect(COVER_X + 5, COVER_Y + 7, w, COVER_H, C(0, 0, 0, 0x38));
+    rmDrawRect(COVER_X + 2, COVER_Y + 4, w, COVER_H, C(0, 0, 0, 0x30));
 
     if (cover && cover->Mem) {
         int a = 0x40 + (int)(0x40 * fade);
@@ -295,14 +332,19 @@ static void rhCover(GSTEXTURE *cover, const char *title, float fade)
     } else {
         // Sem capa a moldura continua ali: o vazio comunica "e aqui que a capa
         // vai", em vez de deslocar o resto do layout.
-        rmDrawRect(COVER_X, COVER_Y, COVER_W, COVER_H, C(0x16, 0x1B, 0x26, A_SOLID));
-        if (title)
-            fntRenderString(fntSmall, COVER_X + COVER_W / 2, COVER_Y + COVER_H / 2,
-                            ALIGN_CENTER, COVER_W - 24, 0, title, C(0x55, 0x5E, 0x6E, A_SOLID));
+        //
+        // Antes isto repetia o titulo em corpo miudo. Com nomes de ISO longos
+        // virava um paragrafo ilegivel dentro do retangulo — e o titulo ja esta
+        // grande ao lado. Um aviso curto diz mais.
+        rmDrawRect(COVER_X, COVER_Y, w, COVER_H, C(0x14, 0x19, 0x24, A_SOLID));
+        rmDrawRect(COVER_X + 10, COVER_Y + 10, w - 20, COVER_H - 20,
+                   C(0x1B, 0x21, 0x2E, A_SOLID));
+        fntRenderString(fntSmall, COVER_X + w / 2, COVER_Y + COVER_H / 2 - 8,
+                        ALIGN_CENTER, 0, 0, "SEM CAPA", C(0x4E, 0x58, 0x68, A_SOLID));
     }
 
     // Luz na borda de cima e na esquerda: sugere volume sem custar textura.
-    rmDrawRect(COVER_X, COVER_Y, COVER_W, 1, C(0xFF, 0xFF, 0xFF, 0x2A));
+    rmDrawRect(COVER_X, COVER_Y, w, 1, C(0xFF, 0xFF, 0xFF, 0x2A));
     rmDrawRect(COVER_X, COVER_Y, 1, COVER_H, C(0xFF, 0xFF, 0xFF, 0x1C));
 }
 
@@ -316,12 +358,19 @@ static int rhAction(int x, int y, u64 dot, const char *label)
 
 static void rhInfo(const char *title, const char *startup)
 {
+    int avail = 640 - INFO_X - M_SAFE;
     int y = COVER_Y + 6;
+    char buf[96];
     int x;
 
+    // Painel discreto atras da coluna de texto. Sem ele o texto flutua sobre a
+    // capa desfocada e o contraste depende da imagem que estiver ali.
+    rmDrawRect(INFO_X - 14, COVER_Y - 6, avail + 20, COVER_H + 12,
+               C(0x08, 0x0B, 0x12, 0x44));
+
     if (title) {
-        fntRenderString(fntBig, INFO_X, y, ALIGN_NONE, 640 - INFO_X - M_SAFE, 0,
-                        title, C_TEXT);
+        rhFitText(fntBig, title, avail, buf, sizeof(buf));
+        fntRenderString(fntBig, INFO_X, y, ALIGN_NONE, 0, 0, buf, C_TEXT);
         y += 40;
     }
 
@@ -351,20 +400,25 @@ static void rhSpine(int x, int w, int h, const char *key, int focused, float glo
     rhSpineColor(key, &r, &g, &b);
 
     if (focused) {
-        int lift = (int)(70.0f * glow);
+        // Clarear +70 sobre uma cor que ja podia chegar a 168 estourava para
+        // quase branco: a lombada em foco virava uma barra chapada, sem cor
+        // propria. +38 destaca sem apagar de que jogo ela e.
+        int lift = (int)(38.0f * glow);
         r += lift; g += lift; b += lift;
-        if (r > 255) r = 255;
-        if (g > 255) g = 255;
-        if (b > 255) b = 255;
+        if (r > 235) r = 235;
+        if (g > 235) g = 235;
+        if (b > 235) b = 235;
     }
 
     rmDrawRect(x, y, w, h, C(r, g, b, A_SOLID));
 
     // Filete claro no topo: da espessura ao "papel" e separa a lombada do fundo.
-    rmDrawRect(x, y, w, 2, C(0xFF, 0xFF, 0xFF, focused ? 0x50 : 0x2E));
+    rmDrawRect(x, y, w, 2, C(0xFF, 0xFF, 0xFF, focused ? 0x3A : 0x2E));
 
     if (focused) {
-        int a = (int)(0x80 * glow);
+        // Contorno so em ciano — o branco de antes competia com o corpo da
+        // lombada e as duas coisas viravam uma mancha unica.
+        int a = (int)(0x70 * glow);
         rmDrawRect(x - 2, y - 2, w + 4, 2, C(0x4C, 0xC2, 0xFF, a));
         rmDrawRect(x - 2, SHELF_Y, w + 4, 2, C(0x4C, 0xC2, 0xFF, a));
         rmDrawRect(x - 2, y - 2, 2, h + 4, C(0x4C, 0xC2, 0xFF, a));
@@ -448,7 +502,7 @@ void rhShelfRender(void)
     // ---- camadas -----------------------------------------------------------
     rhBackdrop(cover, coverFade);
     rhHeader(total, index);
-    rhCover(cover, title, coverFade);
+    rhCover(cover, coverFade);
     rhInfo(title, startup);
     rhRail();
 
