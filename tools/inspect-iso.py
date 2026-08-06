@@ -22,18 +22,29 @@ SECTOR = 2048
 
 
 def fragment_count(path):
-    """Numero de extents do arquivo, ou None se nao der para consultar.
+    """Numero de extents, ou uma string explicando por que nao deu.
 
-    Usa o filefrag do e2fsprogs, que fala com o kernel via FIEMAP e portanto
-    funciona em exFAT, FAT32 e ext4 igualmente.
+    Usa o filefrag do e2fsprogs. Em ext4 ele consulta por FIEMAP, que qualquer
+    usuario pode usar. Em exFAT e FAT32 o driver nao oferece FIEMAP e o filefrag
+    cai no FIBMAP antigo, que exige root — justamente nos sistemas de arquivos
+    que nos interessam. Dai valer a pena dizer isso em vez de ficar calado.
     """
     try:
         out = subprocess.run(["filefrag", path], capture_output=True,
-                             text=True, timeout=60)
-    except (FileNotFoundError, subprocess.SubprocessError):
-        return None
-    m = re.search(r"(\d+)\s+extents?\s+found", out.stdout)
-    return int(m.group(1)) if m else None
+                             text=True, timeout=120)
+    except FileNotFoundError:
+        return "filefrag não instalado (pacote e2fsprogs)"
+    except subprocess.SubprocessError:
+        return "filefrag não respondeu"
+
+    texto = out.stdout + out.stderr
+    m = re.search(r"(\d+)\s+extents?\s+found", texto)
+    if m:
+        return int(m.group(1))
+    if "root privileges" in texto or "FIBMAP" in texto:
+        return ("precisa de root neste sistema de arquivos — rode:  "
+                f"sudo filefrag '{path}'")
+    return "não foi possível medir"
 
 
 def read_at(f, lba, count=1):
@@ -166,8 +177,8 @@ def inspect(path):
     # (BDM_MAX_FRAGS, cdvd_config.h:65) — e o sintoma e o jogo simplesmente nao
     # aparecer, sem nenhuma mensagem.
     frags = fragment_count(path)
-    if frags is None:
-        pass  # sistema de arquivos sem suporte a consulta; nao da para saber
+    if isinstance(frags, str):
+        notes.append(f"fragmentos não medidos: {frags}")
     elif frags > 64:
         problems.append(f"{frags} fragmentos — o OPL desiste acima de 64, e o "
                         "jogo nem aparece na lista. Não use desfragmentador: "
