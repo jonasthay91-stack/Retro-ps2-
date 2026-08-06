@@ -81,6 +81,7 @@ static image_cache_t *coverCache = NULL;
 // ao mesmo tempo, o que nao e o nosso caso.
 static int coverCacheId = -1;
 static int coverUID = -1;
+static char coverKey[64] = ""; // codigo do disco cuja capa esta no cache
 
 // Fontes proprias. O padrao do OPL tem 17 px e so ele deixaria tudo no mesmo
 // peso visual. fntLoadFile(NULL, n) carrega a MESMA fonte embutida noutro
@@ -193,6 +194,17 @@ static GSTEXTURE *rhGetCover(item_list_t *list, submenu_list_t *sel)
     if (!startup)
         return NULL;
 
+    // Quando o arquivo nao existe, cacheGetTexture grava -2 no identificador e
+    // passa a devolver NULL de saida, sem tentar de novo (texcache.c:5-7). No
+    // tema do OPL isso e guardado POR JOGO, entao significa "este jogo nao tem
+    // capa". Aqui o identificador e um so, compartilhado — sem zerar na troca,
+    // um unico jogo sem capa desligaria as capas de todos ate reiniciar.
+    if (strcmp(coverKey, startup) != 0) {
+        snprintf(coverKey, sizeof(coverKey), "%s", startup);
+        coverCacheId = -1;
+        coverUID = -1;
+    }
+
     // Assincrono: devolve NULL enquanto o arquivo nao chegou do pendrive. Quem
     // desenha trata isso como "ainda nao", nunca como erro.
     return cacheGetTexture(coverCache, list, &coverCacheId, &coverUID, startup);
@@ -279,20 +291,35 @@ static void rhBackdrop(GSTEXTURE *cover, float fade)
 {
     int t;
 
-    rmDrawRect(0, 0, 640, 480, C_BASE);
-
+    // Orcamento de preenchimento, nao de primitivas.
+    //
+    // A primeira versao pintava a tela cheia, depois a capa por cima em tela
+    // cheia, depois catorze faixas de 640 px com alfa — cinco telas de pintura
+    // sobreposta por quadro, todas com mistura. O numero de primitivas era
+    // baixinho, mas quem derruba a taxa de quadros no GS a 480 linhas
+    // entrelacadas e a AREA pintada com alfa ligado, nao a contagem de chamadas.
+    //
+    // Agora: uma camada de base OU a capa (nunca as duas), e o escurecimento so
+    // onde ele e necessario — atras do texto e atras da prateleira. O miolo da
+    // direita nao precisa de veu nenhum.
     if (cover && cover->Mem) {
         // Multiplicacao de cor: abaixo de 0x80 escurece. Entra junto com o fade
         // para a troca de jogo nao piscar.
         t = 0x1E + (int)(0x14 * fade);
         rmDrawPixmap(cover, 0, 0, ALIGN_NONE, 640, 480, SCALING_NONE,
                      C(t, t, t + 6, A_SOLID));
+    } else {
+        rmDrawRect(0, 0, 640, 480, C_BASE);
     }
 
-    // Escurecimento por cima, mais forte embaixo: garante contraste para o
-    // texto e para a prateleira, independentemente da capa que estiver ali.
-    rhGradient(0, 300, 0x08, 0x0A, 0x10, 0x30, 0x58, 8);
-    rhGradient(300, 180, 0x06, 0x07, 0x0C, 0x58, 0x78, 6);
+    // Faixa de cima, curta: so o suficiente para o rotulo e o contador nao
+    // sumirem sobre uma capa clara.
+    rhGradient(0, 64, 0x05, 0x07, 0x0C, 0x5A, 0x00, 4);
+
+    // Faixa de baixo: separa a prateleira do fundo e garante contraste para as
+    // lombadas. Seis passos bastam — acima disso a banda ja nao se distingue
+    // numa TV entrelacada, e cada faixa custa 640 px de largura.
+    rhGradient(SHELF_Y - 150, 150 + (480 - SHELF_Y), 0x05, 0x07, 0x0C, 0x18, 0x74, 6);
 }
 
 // Rotulo pequeno com um filete de acento embaixo. Marca o topo da tela sem
