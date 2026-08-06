@@ -94,6 +94,8 @@ static int fntSmall = FNT_DEFAULT;
 // so um pouco mais lento no segundo, o que ninguem percebe.
 static float scrollPx = 0.0f;   // posicao atual da fila
 static float growth = 0.0f;     // 0..1, o "puxar o livro da estante"
+static float growthVel = 0.0f;  // velocidade da mola de 'growth'
+static float textFade = 0.0f;   // 0..1, entrada atrasada do texto
 static float coverFade = 0.0f;  // 0..1, entrada da capa nova
 static void *lastCoverMem = NULL;
 static int animReady = 0;       // primeiro quadro assenta sem animar
@@ -376,16 +378,18 @@ static void rhCover(GSTEXTURE *cover, float fade)
 }
 
 // Uma acao: ponto colorido do botao + palavra.
-static int rhAction(int x, int y, u64 dot, const char *label)
+static int rhAction(int x, int y, u64 dot, const char *label, int alpha)
 {
     rmDrawRect(x, y + 4, 8, 8, dot);
-    fntRenderString(fntSmall, x + 14, y, ALIGN_NONE, 0, 0, label, C_TEXT_DIM);
+    fntRenderString(fntSmall, x + 14, y, ALIGN_NONE, 0, 0, label,
+                    C(0x9A, 0xA6, 0xB8, alpha));
     return x + 14 + fntCalcDimensions(fntSmall, label) + 20;
 }
 
-static void rhInfo(const char *title, const char *startup)
+static void rhInfo(const char *title, const char *startup, float fade)
 {
     int avail = 640 - INFO_X - M_SAFE;
+    int a = (int)(A_SOLID * fade);
     int y = COVER_Y + 6;
     char buf[96];
     int x;
@@ -397,24 +401,28 @@ static void rhInfo(const char *title, const char *startup)
 
     if (title) {
         rhFitText(fntBig, title, avail, buf, sizeof(buf));
-        fntRenderString(fntBig, INFO_X, y, ALIGN_NONE, 0, 0, buf, C_TEXT);
+        fntRenderString(fntBig, INFO_X, y, ALIGN_NONE, 0, 0, buf,
+                        C(0xFF, 0xFF, 0xFF, a));
         y += 40;
     }
 
-    rmDrawRect(INFO_X, y, 34, 2, C_ACCENT);
+    // O filete de acento cresce junto com o texto: e o unico elemento que
+    // sugere direcao, entao vale ele desenhar-se em vez de aparecer pronto.
+    rmDrawRect(INFO_X, y, (int)(34 * fade) + 2, 2, C_ACCENT);
     y += 14;
 
     if (startup) {
-        fntRenderString(fntSmall, INFO_X, y, ALIGN_NONE, 0, 0, startup, C_TEXT_DIM);
+        fntRenderString(fntSmall, INFO_X, y, ALIGN_NONE, 0, 0, startup,
+                        C(0x9A, 0xA6, 0xB8, a));
         y += 26;
     }
 
     // Acoes junto do rodape da capa, para o olho encontrar sempre no mesmo lugar
     // em vez de flutuar com o tamanho do titulo.
     y = COVER_Y + COVER_H - 22;
-    x = rhAction(INFO_X, y, C_BTN_CROSS, "JOGAR");
-    x = rhAction(x, y, C_BTN_CIRCLE, "VOLTAR");
-    rhAction(x, y, C_BTN_TRIANGLE, "OPCOES");
+    x = rhAction(INFO_X, y, C_BTN_CROSS, "JOGAR", a);
+    x = rhAction(x, y, C_BTN_CIRCLE, "VOLTAR", a);
+    rhAction(x, y, C_BTN_TRIANGLE, "OPCOES", a);
 }
 
 // Uma lombada. Duas primitivas quando fora de foco — e por isso que a fila
@@ -425,6 +433,15 @@ static void rhSpine(int x, int w, int h, const char *key, int focused, float glo
     int r, g, b;
 
     rhSpineColor(key, &r, &g, &b);
+
+    if (!focused) {
+        // Escurecer o que nao esta em foco faz o foco aparecer sem precisar
+        // clarear o selecionado ate perder a cor. Custa zero: e a mesma
+        // primitiva, com outro valor.
+        r = (r * 58) / 100;
+        g = (g * 58) / 100;
+        b = (b * 58) / 100;
+    }
 
     if (focused) {
         // Clarear +70 sobre uma cor que ja podia chegar a 168 estourava para
@@ -519,10 +536,27 @@ void rhShelfRender(void)
         // Entrar na tela nao deve custar uma animacao de deslize vinda do zero.
         scrollPx = target;
         growth = 1.0f;
+        growthVel = 0.0f;
+        textFade = 1.0f;
         animReady = 1;
     } else {
         EASE(scrollPx, target, 0.22f);
-        EASE(growth, 1.0f, 0.20f);
+
+        // Mola em vez de aproximacao simples: o item em foco passa um pouco do
+        // tamanho final e volta. E o que separa "cresceu" de "foi escolhido" —
+        // e custa tres multiplicacoes, nenhum pixel a mais.
+        growthVel += (1.0f - growth) * 0.34f;
+        growthVel *= 0.70f; // amortecimento; sem isso oscila para sempre
+        growth += growthVel;
+        if (growth < 0.0f)
+            growth = 0.0f;
+        if (growth > 1.35f)
+            growth = 1.35f;
+
+        // O texto entra depois que a lombada ja esta a caminho. Escalonar
+        // tempos e o truque mais barato que existe para uma interface parecer
+        // cuidada: nada acontece tudo de uma vez.
+        EASE(textFade, (growth > 0.45f) ? 1.0f : 0.0f, 0.24f);
     }
     EASE(coverFade, 1.0f, 0.16f);
 
@@ -530,7 +564,7 @@ void rhShelfRender(void)
     rhBackdrop(cover, coverFade);
     rhHeader(total, index);
     rhCover(cover, coverFade);
-    rhInfo(title, startup);
+    rhInfo(title, startup, textFade);
     rhRail();
 
     // ---- a fila ------------------------------------------------------------
@@ -575,12 +609,14 @@ void rhShelfHandleInput(void)
         if (menu->current && menu->current->prev) {
             menu->current = menu->current->prev;
             growth = 0.0f;
+            growthVel = 0.0f;
             sfxPlay(SFX_CURSOR);
         }
     } else if (getKey(KEY_RIGHT)) {
         if (menu->current && menu->current->next) {
             menu->current = menu->current->next;
             growth = 0.0f;
+            growthVel = 0.0f;
             sfxPlay(SFX_CURSOR);
         }
     } else if (getKeyOn(KEY_CROSS)) {
