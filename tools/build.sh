@@ -217,8 +217,26 @@ if [ -n "$DEST" ]; then
         exit 1
     fi
     cp -f "$OUT_NAME" "$DEST/$OUT_NAME"
+
+    # Entrada na secao Applications do OPL.
+    #
+    # O uLaunchELF e o FMCB usam um driver de USB antigo, que so le FAT16/FAT32.
+    # Num pendrive exFAT eles nao enxergam arquivo nenhum, e por isso nunca
+    # conseguem lancar o ELF da raiz. O OPL le exFAT desde a v1.2.0 — e ele
+    # tambem sabe lancar programas: varre <dispositivo>/APPS procurando subpastas
+    # com um title.cfg dentro (opl.c:452 e opl.c:scanApps) e lista cada uma.
+    #
+    # Ou seja: o OPL que ja funciona no Memory Card vira o nosso carregador, e a
+    # questao do sistema de arquivos deixa de existir.
+    APPDIR="$DEST/APPS/RetroHub"
+    mkdir -p "$APPDIR"
+    cp -f "$OUT_NAME" "$APPDIR/$OUT_NAME"
+    # 'boot' e relativo a pasta; o OPL junta os dois (appsupport.c:447).
+    printf 'title=RetroHub\nboot=%s\n' "$OUT_NAME" > "$APPDIR/title.cfg"
+
     sync
     echo "==> copiado para $DEST/$OUT_NAME"
+    echo "    e para $APPDIR/  (aparece em Applications no OPL)"
 fi
 
 # O que falta fazer depende de o ELF ja ter sido copiado ou nao. Repetir o
@@ -229,8 +247,9 @@ if [ -n "$DEST" ]; then
 Próximo passo:
   1. desmonte antes de tirar:
        udisksctl unmount -b \$(findmnt -no SOURCE '$DEST')
-  2. no PS2: FMCB → uLaunchELF → mass: → $OUT_NAME
-  3. se a build travar, o OPNPS2LD.ELF do lado continua sendo o plano B
+  2. no PS2: abra o OPL do Memory Card → seção Applications → RetroHub
+     (o OPL lê exFAT e sabe lançar ELF; o uLaunchELF não lê exFAT)
+  3. se a build travar, é só ligar de novo — nada no cartão foi alterado
 EOF
 else
     cat <<EOF

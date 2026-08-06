@@ -324,3 +324,69 @@ Em `conf_opl.cfg` (`src/config.c:23`), sob o prefixo `gBaseMCDir`, que por padr�
 (`opl.c:1700`) — ou seja, **no Memory Card**, não no pendrive. Editar o arquivo pelo PC só é possível
 depois de mover a configuração para o dispositivo (`configSetMove`, `opl.c:1028`). Pela interface do
 console é o caminho direto.
+
+---
+
+## 9. Lançar a build sem depender do uLaunchELF
+
+O caminho "FMCB → uLaunchELF → `mass:` → `RETROHUB.ELF`" descrito acima **não funciona num
+pendrive exFAT**, e a razão não aparece em lugar nenhum da documentação do OPL.
+
+### O problema
+
+| Programa | Lê exFAT? |
+|---|---|
+| **OPL** ≥ v1.2.0 | Sim |
+| **uLaunchELF** | Não — driver de USB antigo, FAT16/FAT32 apenas |
+| **FMCB** | Não |
+
+O pendrive funciona perfeitamente para *guardar jogos*, porque quem os lê é o OPL. Mas nada
+consegue *dar boot* nele: o uLaunchELF mostra `mass:` vazio, e o FMCB não acha o caminho.
+
+É um problema de ordem, e fácil de não enxergar: a documentação do OPL recomenda exFAT pensando em
+onde os **jogos** ficam. Só que alguém precisa conseguir ler o pendrive para **lançar** o OPL — e
+esse alguém não é o OPL.
+
+**Sintoma:** o console abre normalmente, lista os jogos do pendrive, e continua sendo o OPL antigo.
+A build nova nunca roda, e nada indica o porquê.
+
+**Como confirmar:** *Settings → About* mostra a versão. Uma build feita do código-fonte carrega o
+hash do commit (`Makefile:65`); um OPL baixado pronto, não. Se o hash não aparecer, o console nunca
+executou a nossa build. (A linha é montada num buffer de 40 bytes em `gui.c:203`, então versões
+longas aparecem cortadas — procure o hash, não o sufixo.)
+
+### A solução: o OPL como carregador
+
+**O OPL sabe lançar programas.** Ele varre `<dispositivo>/APPS` procurando subpastas que contenham
+um `title.cfg` (`opl.c:452` e `scanApps`), e lista cada uma na seção *Applications*. Ao escolher
+uma, monta `<pasta>/<boot>` e executa (`appsupport.c:447-449`).
+
+Quem lê o pendrive nessa hora é o OPL — que suporta exFAT. **A questão do sistema de arquivos
+simplesmente desaparece.**
+
+```
+<pendrive>/
+  APPS/
+    RetroHub/
+      title.cfg        title=RetroHub
+                       boot=RETROHUB.ELF
+      RETROHUB.ELF
+```
+
+`./tools/build.sh -p` gera essa estrutura automaticamente, além de manter a cópia na raiz.
+
+No console: **OPL do Memory Card → Applications → RetroHub**.
+
+Nada é gravado no cartão, o FMCB continua intocado, e se a build travar basta ligar de novo — o
+OPL original está lá, como sempre esteve.
+
+### Por que isto é melhor que as alternativas
+
+| Alternativa | Por que não |
+|---|---|
+| Reformatar para FAT32 | Funciona, mas custa copiar tudo duas vezes e joga fora o suporte a ISO acima de 4 GB |
+| Copiar o ELF para o cartão | O uLaunchELF precisaria ler o pendrive para copiar — o mesmo impedimento |
+| Configurar o FMCB | O FMCB também não lê exFAT |
+
+O Memory Card, aliás, tem sistema de arquivos proprietário da Sony — não é FAT. Não existe
+"arrastar arquivo pelo PC" para ele sem hardware específico; quem escreve no cartão é o console.
