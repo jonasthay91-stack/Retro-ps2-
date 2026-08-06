@@ -58,6 +58,7 @@ Assim `git diff` no fork mostra exatamente a divergência, e há sempre um camin
 | [**06 — Decisão: formato das capas**](docs/06-decisao-capas.md) | Capa única 192×276 em PNG paletizado 8 bits — a escolha mais leve e mais simples |
 | [**07 — Identidade visual**](docs/07-identidade-visual.md) | O que foi aproveitado e rejeitado das referências, e a assinatura visual: a capa vira o fundo |
 | [**08 — Console de teste**](docs/08-console-de-teste.md) | Como preparar um PS2 para receber builds — pré-requisito da Fase 0 |
+| [**09 — Plano visual**](docs/09-plano-visual.md) | O que o GS permite, em que ordem construir, e por que fluidez vem antes de enfeite |
 | [**Divergências**](DIVERGENCIAS.md) | Tudo o que o RetroHub muda no código do OPL, e por quê |
 
 ---
