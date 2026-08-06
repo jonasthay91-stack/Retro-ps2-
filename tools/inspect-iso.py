@@ -15,9 +15,25 @@ acima do limite do FAT32, pasta trocada entre CD e DVD, e mídia fragmentada.
 
 import os
 import re
+import subprocess
 import sys
 
 SECTOR = 2048
+
+
+def fragment_count(path):
+    """Numero de extents do arquivo, ou None se nao der para consultar.
+
+    Usa o filefrag do e2fsprogs, que fala com o kernel via FIEMAP e portanto
+    funciona em exFAT, FAT32 e ext4 igualmente.
+    """
+    try:
+        out = subprocess.run(["filefrag", path], capture_output=True,
+                             text=True, timeout=60)
+    except (FileNotFoundError, subprocess.SubprocessError):
+        return None
+    m = re.search(r"(\d+)\s+extents?\s+found", out.stdout)
+    return int(m.group(1)) if m else None
 
 
 def read_at(f, lba, count=1):
@@ -99,7 +115,15 @@ def inspect(path):
         code = m2.group(1).replace("\\", "").strip()
         print(f"  sistema        \033[32mPlayStation 2\033[0m")
         print(f"  código         \033[1m{code}\033[0m")
-        notes.append(f"capa deve se chamar  ART/{code}_COV.png")
+        # O OPL guarda o codigo em 11 caracteres mais o terminador
+        # (GAME_STARTUP_MAX = 12) e TRUNCA sem avisar (supportbase.c:112-114).
+        # Codigo comercial cabe justo — "SLUS_211.34" tem exatos 11. Disco de
+        # coletanea, com nome de boot proprio, costuma passar disso, e a capa
+        # so aparece se o arquivo usar o nome ja cortado.
+        used = code[:11]
+        if used != code:
+            notes.append(f"o OPL corta o código em 11 caracteres: usa \033[1m{used}\033[0m")
+        notes.append(f"capa deve se chamar  ART/{used}_COV.png")
     elif m1:
         code = m1.group(1).replace("\\", "").strip()
         print(f"  sistema        \033[33mPlayStation 1\033[0m")
@@ -135,6 +159,22 @@ def inspect(path):
     if not path.lower().endswith(".iso"):
         problems.append("a extensão precisa ser .iso minúsculo ou maiúsculo; "
                         "o OPL não lista outros nomes.")
+
+    # Fragmentacao. O OPL monta o ISO para ler o SYSTEM.CNF durante a varredura;
+    # se a montagem falhar ele descarta o jogo da lista EM SILENCIO
+    # (supportbase.c:334-339). Acima de 64 fragmentos o driver desiste
+    # (BDM_MAX_FRAGS, cdvd_config.h:65) — e o sintoma e o jogo simplesmente nao
+    # aparecer, sem nenhuma mensagem.
+    frags = fragment_count(path)
+    if frags is None:
+        pass  # sistema de arquivos sem suporte a consulta; nao da para saber
+    elif frags > 64:
+        problems.append(f"{frags} fragmentos — o OPL desiste acima de 64, e o "
+                        "jogo nem aparece na lista. Não use desfragmentador: "
+                        "copie tudo para o PC, formate o pendrive e copie de "
+                        "volta, com os arquivos grandes primeiro.")
+    else:
+        print(f"  fragmentos     {frags}  (limite 64)")
 
     for n in notes:
         print(f"  \033[36m·\033[0m {n}")
