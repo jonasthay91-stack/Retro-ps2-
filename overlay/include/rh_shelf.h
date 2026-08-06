@@ -16,4 +16,14 @@ void rhShelfEnd(void);
 void rhShelfHandleInput(void);
 void rhShelfRender(void);
 
+/// Marca de identificacao, desenhada por cima de qualquer tela.
+///
+/// Existe para responder num olhar a pergunta "qual binario esta rodando?".
+/// O OPL do Memory Card e o RetroHub do pendrive sao visualmente identicos ate
+/// que se aperte R3, e descobrir que se testou o binario errado custa uma
+/// rodada inteira de compilar, copiar, desmontar e ligar o console.
+///
+/// Temporaria: sai quando o RetroHub tiver identidade propria na tela.
+void rhShelfWatermark(void);
+
 #endif

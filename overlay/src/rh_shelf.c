@@ -142,6 +142,21 @@ void rhShelfEnd(void)
     coverUID = -1;
 }
 
+// Marca de identificacao. __DATE__/__TIME__ sao preenchidos pelo compilador, e
+// e justamente por mudarem a cada build que servem: se o valor na tela nao
+// mudou depois de recompilar, o console abriu outro arquivo.
+//
+// A hora vem do container do build, que pode estar noutro fuso — o que importa
+// nao e bater com o relogio, e sim mudar.
+void rhShelfWatermark(void)
+{
+    static const char tag[] = "RetroHub " __TIME__;
+
+    rmDrawRect(0, 462, 132, 18, C(0x00, 0x00, 0x00, 0x5C));
+    rmDrawRect(0, 462, 3, 18, C_ACCENT);
+    fntRenderString(FNT_DEFAULT, 9, 463, ALIGN_NONE, 0, 0, tag, C_ACCENT);
+}
+
 // ------------------------------------------------------------------ dados ---
 static submenu_list_t *rhGetList(menu_item_t **outMenu)
 {

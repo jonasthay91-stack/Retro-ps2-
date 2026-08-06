@@ -38,7 +38,7 @@ index 0cbf9bf..2dce052 100644
  void menuAddHint(menu_item_t *menu, int text_id, int icon_id);
  void menuRemoveHints(menu_item_t *menu);
 diff --git a/src/gui.c b/src/gui.c
-index 1054228..56ca295 100644
+index 1054228..c2759dd 100644
 --- a/src/gui.c
 +++ b/src/gui.c
 @@ -22,6 +22,7 @@
@@ -79,6 +79,16 @@ index 1054228..56ca295 100644
      if (gBackgroundTex.Mem)
          free(gBackgroundTex.Mem);
  
+@@ -189,6 +197,9 @@ void guiStartFrame(void)
+ 
+ void guiEndFrame(void)
+ {
++    // RetroHub: ultima coisa desenhada, entao fica por cima de qualquer tela.
++    rhShelfWatermark();
++
+     rmEndFrame();
+ #ifdef __DEBUG
+     // Measure time directly after vsync
 diff --git a/src/menusys.c b/src/menusys.c
 index 972f332..e3a57ee 100644
 --- a/src/menusys.c
