@@ -113,6 +113,17 @@ def inspect(path):
             print("     provavelmente é de outro sistema (PC, Dreamcast, Xbox...).")
             return False
 
+        # O OPL abre o arquivo pelo nome EXATO "SYSTEM.CNF;1"
+        # (supportbase.c:334). O ";1" e o numero de versao do ISO9660 e quase
+        # sempre esta la, mas gravador que o omite produz um disco que outros
+        # programas leem e o OPL nao — e o sintoma e o jogo sumir da lista sem
+        # aviso, porque a montagem falha e ele descarta a entrada em silencio.
+        if not rec[2].upper().endswith(";1"):
+            problems.append(f"o SYSTEM.CNF está gravado como '{rec[2]}', sem o "
+                            "sufixo ';1'. O OPL pede exatamente 'SYSTEM.CNF;1' "
+                            "e não vai encontrar — o jogo some da lista sem "
+                            "mensagem nenhuma.")
+
         f.seek(rec[0] * SECTOR)
         cnf = f.read(min(rec[1], 4096)).decode("latin-1", "replace")
 
