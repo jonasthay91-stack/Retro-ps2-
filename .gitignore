@@ -1,0 +1,8 @@
+# Cache do interpretador Python. Gerado ao importar tools/inspect-iso.py como
+# modulo durante os testes; nao e fonte e nao deve ser versionado.
+__pycache__/
+*.py[cod]
+
+# Saidas de build, caso alguem compile dentro deste repositorio por engano.
+*.ELF
+*.elf
