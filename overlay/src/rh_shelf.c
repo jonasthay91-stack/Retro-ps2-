@@ -73,6 +73,10 @@
 #define SPINE_GAP     4
 #define SPINE_PITCH (SPINE_W + SPINE_GAP)
 
+// Quanto o fundo desliza para cada lado. Vinte pixels bastam: acima disso a
+// borda ampliada da capa comeca a aparecer, e o efeito vira defeito.
+#define RH_PARALLAX 20
+
 // ----------------------------------------------------------------- estado ---
 static image_cache_t *coverCache = NULL;
 
@@ -289,7 +293,8 @@ static void rhGradient(int y, int h, int r, int g, int b, int a0, int a1, int st
 // cheia e escurecida, virando o fundo. Custa UMA primitiva e zero byte — a
 // textura ja esta carregada para o painel. O borrao e efeito colateral do
 // filtro bilinear do GS ampliando 192 px para 640, nao um filtro que pagamos.
-static void rhBackdrop(GSTEXTURE *cover, float fade)
+// 'pan' vai de -1 a +1 e diz onde a fila esta: -1 no comeco, +1 no fim.
+static void rhBackdrop(GSTEXTURE *cover, float fade, float pan)
 {
     int t;
 
@@ -305,11 +310,20 @@ static void rhBackdrop(GSTEXTURE *cover, float fade)
     // onde ele e necessario — atras do texto e atras da prateleira. O miolo da
     // direita nao precisa de veu nenhum.
     if (cover && cover->Mem) {
+        // Paralaxe: o fundo anda no sentido contrario ao da fila, alguns pixels.
+        // E a mesma primitiva com outra coordenada — custo ZERO — e mesmo um
+        // deslocamento pequeno separa as duas camadas em profundidade. E o
+        // truque de profundidade mais barato que existe neste hardware.
+        //
+        // A imagem e desenhada 40 px mais larga que a tela e comeca fora dela,
+        // senao o deslocamento abriria uma faixa vazia na borda.
+        int px = -RH_PARALLAX + (int)(-pan * RH_PARALLAX);
+
         // Multiplicacao de cor: abaixo de 0x80 escurece. Entra junto com o fade
         // para a troca de jogo nao piscar.
         t = 0x1E + (int)(0x14 * fade);
-        rmDrawPixmap(cover, 0, 0, ALIGN_NONE, 640, 480, SCALING_NONE,
-                     C(t, t, t + 6, A_SOLID));
+        rmDrawPixmap(cover, px, 0, ALIGN_NONE, 640 + 2 * RH_PARALLAX, 480,
+                     SCALING_NONE, C(t, t, t + 6, A_SOLID));
     } else {
         rmDrawRect(0, 0, 640, 480, C_BASE);
     }
@@ -488,7 +502,7 @@ void rhShelfRender(void)
     GSTEXTURE *cover;
     char *title, *startup;
     int total = 0, index = 0, i, first, x;
-    float target, span, avail;
+    float target, span, avail, pan;
 
     if (!head || !sel) {
         rmDrawRect(0, 0, 640, 480, C_BASE);
@@ -561,7 +575,14 @@ void rhShelfRender(void)
     EASE(coverFade, 1.0f, 0.16f);
 
     // ---- camadas -----------------------------------------------------------
-    rhBackdrop(cover, coverFade);
+    // Onde a fila esta, de -1 (comeco) a +1 (fim). Com poucos jogos nao ha
+    // percurso, entao o fundo fica parado no centro em vez de saltar.
+    if (span > avail)
+        pan = (scrollPx / (span - avail)) * 2.0f - 1.0f;
+    else
+        pan = 0.0f;
+
+    rhBackdrop(cover, coverFade, pan);
     rhHeader(total, index);
     rhCover(cover, coverFade);
     rhInfo(title, startup, textFade);
